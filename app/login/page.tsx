@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import "../home.css";
+import Navigation from "../components/Navigation";
 
 // Sample users with different roles
 const SAMPLE_USERS = {
@@ -81,22 +82,7 @@ const handleLogin = (e: React.FormEvent) => {
 
   return (
     <div className="home-container">
-      {/* Fixed Navbar */}
-      <nav className="notch-navbar">
-        <div className="notch-navbar-inner">
-         <span className="brand-name">Sparrow </span>
-          <div className="nav-links">
-            <Link href="/" className="nav-link">Home</Link>
-            <Link href="/#services" className="nav-link">Services</Link>
-            <Link href="/#tracking" className="nav-link">Track Package</Link>
-            <Link href="/#pricing" className="nav-link">Pricing</Link>
-            <Link href="/#contact" className="nav-link">Contact</Link>
-          </div>
-          <Link href="/register" className="login-btn">
-            Register
-          </Link>
-        </div>
-      </nav>
+      <Navigation/>
 
       {/* Login Content */}
       <div className="login-bg">

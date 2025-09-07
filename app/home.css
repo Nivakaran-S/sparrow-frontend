@@ -5,12 +5,7 @@
   box-sizing: border-box;
 }
 
-body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  background-color: #000000;
-  color: #ffffff;
-  line-height: 1.6;
-}
+
 
 .home-container {
   min-height: 100vh;
@@ -19,27 +14,9 @@ body {
 }
 
 /* Straight Line Navbar */
-.notch-navbar {
-  background: linear-gradient(135deg, #000000, #1a1a1a);
-  backdrop-filter: blur(20px);
-  border-bottom: 1px solid #333333;
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 1000;
-  height: 70px;
-}
 
-.notch-navbar-inner {
-  max-width: 1200px;
-  margin: 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 2rem;
-  height: 100%;
-}
+
+
 
 .brand-name {
   font-size: 1.5rem;
@@ -48,20 +25,8 @@ body {
   letter-spacing: -0.5px;
 }
 
-.nav-links {
-  display: flex;
-  gap: 2rem;
-  align-items: center;
-}
 
-.nav-link {
-  color: #d1d5db;
-  text-decoration: none;
-  font-weight: 500;
-  font-size: 0.95rem;
-  transition: all 0.3s ease;
-  position: relative;
-}
+
 
 .nav-link:hover {
   color: #60a5fa;
@@ -98,16 +63,6 @@ body {
   box-shadow: 0 6px 20px rgba(37, 99, 235, 0.4);
 }
 
-/* Main Content */
-.main-content {
-  padding-top: 120px;
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  background: linear-gradient(135deg, #000000, #000000);
-}
 
 .welcome-screen {
   max-width: 800px;
@@ -116,7 +71,6 @@ body {
 }
 
 .main-text {
-  font-size: 3.5rem;
   font-weight: 800;
   margin-bottom: 1.5rem;
   line-height: 1.2;
@@ -184,7 +138,7 @@ body {
 /* Quick Track Section */
 .quick-track {
   background: linear-gradient(135deg, #111111, #222222);
-  padding: 4rem 2rem;
+  
   border-top: 1px solid #333333;
   border-bottom: 1px solid #333333;
 }
@@ -196,7 +150,7 @@ body {
 }
 
 .track-title {
-  font-size: 2.5rem;
+
   font-weight: 700;
   color: #ffffff;
   margin-bottom: 1rem;
@@ -399,11 +353,6 @@ body {
 }
 
 /* Pricing Section */
-.pricing-section {
-  background: linear-gradient(135deg, #111111, #000000);
-  padding: 5rem 2rem;
-  border-top: 1px solid #333333;
-}
 
 .pricing-title {
   font-size: 3rem;
@@ -420,23 +369,7 @@ body {
   margin-bottom: 4rem;
 }
 
-.pricing-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 2rem;
-  max-width: 1200px;
-  margin: 0 auto 4rem;
-}
 
-.pricing-card {
-  background: linear-gradient(135deg, #1a1a1a, #111111);
-  border-radius: 1rem;
-  padding: 2rem;
-  border: 2px solid #333333;
-  position: relative;
-  transition: all 0.3s ease;
-  text-align: center;
-}
 
 .pricing-card:hover {
   transform: translateY(-10px);
@@ -444,11 +377,7 @@ body {
   box-shadow: 0 20px 40px rgba(96, 165, 250, 0.2);
 }
 
-.pricing-card.featured {
-  border-color: #60a5fa;
-  transform: scale(1.05);
-  background: linear-gradient(135deg, #1e3a8a, #1a1a1a);
-}
+
 
 .featured-badge {
   position: absolute;
@@ -463,36 +392,7 @@ body {
   font-weight: 600;
 }
 
-.pricing-name {
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: #ffffff;
-  text-align: center;
-  margin-bottom: 1rem;
-}
 
-.pricing-price {
-  text-align: center;
-  margin-bottom: 2rem;
-}
-
-.price-currency {
-  font-size: 1.5rem;
-  color: #9ca3af;
-  vertical-align: top;
-}
-
-.price-amount {
-  font-size: 3rem;
-  font-weight: 700;
-  color: #60a5fa;
-}
-
-.price-period {
-  font-size: 1rem;
-  color: #9ca3af;
-  margin-left: 0.5rem;
-}
 
 .pricing-features {
   list-style: none;
@@ -506,122 +406,12 @@ body {
   text-align: left;
 }
 
-.pricing-note {
-  text-align: center;
-  color: #9ca3af;
-  font-size: 0.875rem;
-  font-style: italic;
-}
+
 
 /* Pricing Calculator */
-.pricing-calculator {
-  background: linear-gradient(135deg, #1a1a1a, #111111);
-  border-radius: 1rem;
-  padding: 2rem;
-  border: 1px solid #333333;
-  max-width: 600px;
-  margin: 0 auto;
-}
 
-.calculator-title {
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: #ffffff;
-  text-align: center;
-  margin-bottom: 1.5rem;
-}
-
-.calculator-form {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr auto;
-  gap: 1rem;
-  align-items: center;
-}
-
-.calc-input, .calc-select {
-  padding: 0.75rem;
-  border: 1px solid #333333;
-  border-radius: 0.5rem;
-  outline: none;
-  background: #222222;
-  color: #ffffff;
-}
-
-.calc-input::placeholder {
-  color: #6b7280;
-}
-
-.calc-button {
-  padding: 0.75rem 1.5rem;
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
-  color: white;
-  border: none;
-  border-radius: 0.5rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s;
-}
-
-.calc-button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.4);
-}
 
 /* Features Highlight */
-.features-highlight {
-  padding: 5rem 2rem;
-  background: linear-gradient(135deg, #000000, #111111);
-  border-top: 1px solid #333333;
-}
-
-.features-title {
-  font-size: 3rem;
-  font-weight: 700;
-  color: #ffffff;
-  text-align: center;
-  margin-bottom: 4rem;
-}
-
-.features-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 3rem;
-  max-width: 1200px;
-  margin: 0 auto;
-}
-
-.feature-item {
-  text-align: center;
-  padding: 2rem;
-  background: linear-gradient(135deg, #1a1a1a, #111111);
-  border-radius: 1rem;
-  border: 1px solid #333333;
-  transition: all 0.3s ease;
-}
-
-.feature-item:hover {
-  transform: translateY(-10px);
-  border-color: #60a5fa;
-  box-shadow: 0 20px 40px rgba(96, 165, 250, 0.2);
-}
-
-.feature-icon {
-  font-size: 3rem;
-  margin-bottom: 1rem;
-  display: block;
-}
-
-.feature-item h3 {
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: #ffffff;
-  margin-bottom: 1rem;
-}
-
-.feature-item p {
-  color: #d1d5db;
-  line-height: 1.6;
-}
 
 /* Enhanced Chatbot */
 .chatbot-container {
