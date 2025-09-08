@@ -13,11 +13,11 @@ export default function Footer() {
             </p>
             <div className="flex gap-8 mt-4">
               <div className="flex flex-col items-center">
-                <strong className="text-xl font-bold text-blue-400">1M+</strong>
+                <strong className="text-xl font-bold text-[#FFA00A]">1M+</strong>
                 <span className="text-xs text-gray-400">Packages Delivered</span>
               </div>
               <div className="flex flex-col items-center">
-                <strong className="text-xl font-bold text-blue-400">98.5%</strong>
+                <strong className="text-xl font-bold text-[#FFA00A]">98.5%</strong>
                 <span className="text-xs text-gray-400">On-Time Rate</span>
               </div>
             </div>
@@ -26,21 +26,21 @@ export default function Footer() {
           {/* Column 2 - Quick Links */}
           <div className="flex flex-col">
             <h3 className="text-xl font-semibold text-white mb-4">Services</h3>
-            <a href="#" className="text-gray-300 text-sm py-1 block transition-colors duration-300 hover:text-blue-400">Package Tracking</a>
-            <a href="#" className="text-gray-300 text-sm py-1 block transition-colors duration-300 hover:text-blue-400">Delivery Estimates</a>
-            <a href="#" className="text-gray-300 text-sm py-1 block transition-colors duration-300 hover:text-blue-400">Cost Calculator</a>
-            <a href="#" className="text-gray-300 text-sm py-1 block transition-colors duration-300 hover:text-blue-400">Business Solutions</a>
-            <a href="#" className="text-gray-300 text-sm py-1 block transition-colors duration-300 hover:text-blue-400">API Integration</a>
+            <a href="#" className="text-gray-300 text-sm py-1 block transition-colors duration-300 hover:text-[#FFA00A]">Package Tracking</a>
+            <a href="#" className="text-gray-300 text-sm py-1 block transition-colors duration-300 hover:text-[#FFA00A]">Delivery Estimates</a>
+            <a href="#" className="text-gray-300 text-sm py-1 block transition-colors duration-300 hover:text-[#FFA00A]">Cost Calculator</a>
+            <a href="#" className="text-gray-300 text-sm py-1 block transition-colors duration-300 hover:text-[#FFA00A]">Business Solutions</a>
+            <a href="#" className="text-gray-300 text-sm py-1 block transition-colors duration-300 hover:text-[#FFA00A]">API Integration</a>
           </div>
 
           {/* Column 3 - Support */}
           <div className="flex flex-col">
             <h3 className="text-xl font-semibold text-white mb-4">Support</h3>
-            <a href="#" className="text-gray-300 text-sm py-1 block transition-colors duration-300 hover:text-blue-400">Help Center</a>
-            <a href="#" className="text-gray-300 text-sm py-1 block transition-colors duration-300 hover:text-blue-400">Contact Us</a>
-            <a href="#" className="text-gray-300 text-sm py-1 block transition-colors duration-300 hover:text-blue-400">Shipping Guide</a>
-            <a href="#" className="text-gray-300 text-sm py-1 block transition-colors duration-300 hover:text-blue-400">Terms of Service</a>
-            <a href="#" className="text-gray-300 text-sm py-1 block transition-colors duration-300 hover:text-blue-400">Privacy Policy</a>
+            <a href="#" className="text-gray-300 text-sm py-1 block transition-colors duration-300 hover:text-[#FFA00A]">Help Center</a>
+            <a href="#" className="text-gray-300 text-sm py-1 block transition-colors duration-300 hover:text-[#FFA00A]">Contact Us</a>
+            <a href="#" className="text-gray-300 text-sm py-1 block transition-colors duration-300 hover:text-[#FFA00A]">Shipping Guide</a>
+            <a href="#" className="text-gray-300 text-sm py-1 block transition-colors duration-300 hover:text-[#FFA00A]">Terms of Service</a>
+            <a href="#" className="text-gray-300 text-sm py-1 block transition-colors duration-300 hover:text-[#FFA00A]">Privacy Policy</a>
           </div>
 
           {/* Column 4 - Contact */}

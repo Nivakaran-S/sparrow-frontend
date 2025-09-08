@@ -10,9 +10,10 @@ import Navigation from "./components/Navigation";
 import Hero from "./components/Hero";
 import TrackParcel from "./components/TrackParcel";
 import Services from "./components/Services";
-import Pricing from "./components/Pricing";
+import Pricing from "./components/PackagePrice";
 import WhyChooseUs from "./components/WhyChooseUs";
 import Footer from "./components/Footer";
+import About from "./components/About";
 
 export default function Home() {
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -41,16 +42,18 @@ export default function Home() {
       </div>
       <Hero/>
 
-      <TrackParcel/>
+      <About/>
       <Services setIsChatOpen={setIsChatOpen}/>
       
 
-      <hr className="section-divider" />
-      <Pricing/>
-
       
       
 
+      
+      
+      <div className="h-[50vh] bg-black">
+
+      </div>
       {/* Features Highlight */}
       <WhyChooseUs/>
 

@@ -6,7 +6,7 @@ export default function Hero() {
         <main className="flex bg-gradient-to-b from-[#00000]  to-[#FFA00A] h-[89vh] flex-col  items-center justify-center ">
         <div className="flex  flex-col justify-center items-center">
           <p className="text-[3.2rem] text-center w-[30vw] leading-[54px] text-white font-bold">
-            Welcome to <span className="text-[#000000]">Sparrow Logistics</span> 
+            Welcome to <span className="text-[#FFF]">Sparrow Logistics</span> 
           </p>
           <div className="h-[20px]">
 
@@ -22,13 +22,13 @@ export default function Hero() {
 
           </div>
           <div className="flex flex-row space-x-[10px] items-center justify-center">
-            <div className="bg-white hover:bg-black hover:text-white cursor-pointer rounded-[5px] text-black w-[130px] flex items-center justify-center h-[4.5vh] text-[18px]">
+            <div className="bg-white hover:bg-black hover:text-white cursor-pointer rounded-[5px] text-black w-[130px] flex items-center justify-center py-[8px] text-[18px]">
                 <Link href="/login" className="">Ship Now</Link>
             </div>
             <div className="w-[20px]">
 
             </div>
-            <div className="bg-white cursor-pointer hover:bg-black hover:text-white rounded-[5px] text-black w-[150px] flex items-center justify-center h-[4.5vh] text-[18px]">
+            <div className="bg-white cursor-pointer hover:bg-black hover:text-white rounded-[5px] text-black w-[150px] flex items-center justify-center py-[8px] text-[18px]">
                 <Link href="/#tracking" className="">Track Package</Link>
             </div>
           </div>

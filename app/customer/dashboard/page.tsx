@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import "../home.css";
+import "../../home.css";
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
@@ -13,7 +13,7 @@ export default function AdminDashboard() {
     const userData = localStorage.getItem('user');
     if (userData) {
       const parsedUser = JSON.parse(userData);
-      if (parsedUser.role !== 'admin') {
+      if (parsedUser.role !== 'customer') {
         router.push('/login');
         return;
       }

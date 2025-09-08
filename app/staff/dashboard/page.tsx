@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import "../home.css";
+import "../../home.css";
 import LiveMap from "@/components/LiveMap";
 import { demoParcels } from "@/data/demoParcels";
 import { demoHistory } from "@/data/demoHistory";
