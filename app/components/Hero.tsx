@@ -3,7 +3,7 @@ import Link from "next/link"
 
 export default function Hero() {
     return(
-        <main className="flex bg-gradient-to-b from-[#00000]  to-[#FFA00A] h-[89vh] flex-col  items-center justify-center ">
+        <main className="flex bg-gradient-to-b from-[#000000]  to-[#FFA00A] h-[89vh] flex-col  items-center justify-center ">
         <div className="flex  flex-col justify-center items-center">
           <p className="text-[3.2rem] text-center w-[30vw] leading-[54px] text-white font-bold">
             Welcome to <span className="text-[#FFF]">Sparrow Logistics</span> 
@@ -29,7 +29,7 @@ export default function Hero() {
 
             </div>
             <div className="bg-white cursor-pointer hover:bg-black hover:text-white rounded-[5px] text-black w-[150px] flex items-center justify-center py-[8px] text-[18px]">
-                <Link href="/#tracking" className="">Track Package</Link>
+                <Link href="/track" className="">Track Package</Link>
             </div>
           </div>
         </div>

@@ -1,6 +1,6 @@
 import Footer from "../components/Footer";
 import Navigation from "../components/Navigation";
-import Swift from "../components/Swift";
+
 import TrackParcel from "../components/TrackParcel";
 
 export default function Track() {
@@ -20,7 +20,7 @@ export default function Track() {
             </div>
             
             <TrackParcel/>
-            <Swift/>
+     
             <Footer/>
         </div>
     )

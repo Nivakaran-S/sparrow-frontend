@@ -15,6 +15,8 @@ import WhyChooseUs from "./components/WhyChooseUs";
 import Footer from "./components/Footer";
 import About from "./components/About";
 
+import Swift from "./components/Swift";
+
 export default function Home() {
   const [isChatOpen, setIsChatOpen] = useState(false);
   
@@ -58,7 +60,7 @@ export default function Home() {
       <WhyChooseUs/>
 
       {/* Enhanced Chatbot */}
-      
+      <Swift/>
 
       {/* Footer */}
       <Footer/>

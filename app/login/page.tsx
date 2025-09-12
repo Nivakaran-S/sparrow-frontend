@@ -5,6 +5,7 @@ import Link from "next/link";
 import Navigation from "../components/Navigation";
 import Footer from "../components/Footer";
 import LoginForm from "../components/LoginForm";
+import Swift from "../components/Swift";
 
 
 export default function Login() {
@@ -24,6 +25,7 @@ export default function Login() {
       
 
       {/* Footer */}
+      <Swift/>
       <Footer/>
     </div>
   );
