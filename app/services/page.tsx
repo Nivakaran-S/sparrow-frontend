@@ -1,5 +1,6 @@
 import Footer from "../components/Footer";
 import Navigation from "../components/Navigation";
+import Swift from "../components/Swift";
 import TrackParcel from "../components/TrackParcel";
 
 export default function Services() {
@@ -19,7 +20,7 @@ export default function Services() {
                     <p className="text-black">Sparrow streamlines your logistics by combining, managing, and delivering parcels smarter and faster.</p>
                 </div>
             </div>
-            
+            <Swift/>
             <Footer/>
         </div>
     )

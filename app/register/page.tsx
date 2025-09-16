@@ -5,6 +5,7 @@ import Link from "next/link";
 import Navigation from "../components/Navigation";
 import Footer from "../components/Footer";
 import RegistrationForm from "../components/RegistrationForm";
+import Swift from "../components/Swift";
 
 
 export default function Register() {
@@ -20,6 +21,7 @@ export default function Register() {
       <div className="bg-gradient-to-b from-[#808080]  to-white">
         <RegistrationForm/>
       </div>
+      <Swift/>
      <Footer/>
     </div>
   );

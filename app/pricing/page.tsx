@@ -1,6 +1,7 @@
 import Footer from "../components/Footer";
 import Navigation from "../components/Navigation";
 import PackagePrice from "../components/PackagePrice";
+import Swift from "../components/Swift";
 
 export default function Pricing() {
     return(
@@ -22,6 +23,7 @@ export default function Pricing() {
                 </div>
             </div>
             <PackagePrice/>
+            <Swift/>
             <Footer/>
         </div>
     )
