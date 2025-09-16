@@ -1,6 +1,6 @@
 import Link from "next/link"
 import Image from "next/image"
-import Logo from '../images/sparrowLogo.png'
+import Logo from '../images/SparrowLogo2.png'
 
 export default function Navigation() {
     return(

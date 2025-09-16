@@ -55,16 +55,16 @@ const handleLogin = (e: React.FormEvent) => {
       switch (user.role) {
         case 'admin':
           console.log('Pushing to /admindashboard');
-          router.push('/admin/dashboard');
+          router.push('/admin');
           break;
         case 'staff':
-          router.push('/staff/dashboard');
+          router.push('/staff');
           break;
         case 'customer':
-          router.push('/customer/dashboard');
+          router.push('/customer');
           break;
         case 'driver':
-          router.push('/driver/dashboard');
+          router.push('/driver');
           break;
         default:
           router.push('/');

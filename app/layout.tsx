@@ -19,7 +19,7 @@ const amazonEmber = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Sparrow",
+  title: "Sparrow | Parcel Consolidation & Delivery",
   description: "Package Delivery Service",
 };
 
