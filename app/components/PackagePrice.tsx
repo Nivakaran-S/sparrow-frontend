@@ -28,7 +28,7 @@ export default function PackagePrice() {
             <h3 className="text-2xl font-semibold text-white text-center mb-4">Express</h3>
             <div className="text-center mb-8">
               <span className="text-2xl text-gray-200 align-top">Rs. </span>
-              <span className="text-5xl font-bold text-[#FFA00A]">12.99</span>
+              <span className="text-5xl font-bold text-[#101010]">12.99</span>
               <span className="text-base text-gray-200 ml-2">base rate</span>
             </div>
             <ul className="">

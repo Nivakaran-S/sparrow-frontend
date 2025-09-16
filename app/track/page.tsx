@@ -10,12 +10,12 @@ export default function Track() {
               <div className="h-[11vh]">
 
             </div>
-            <div className="flex flex-row bg-gradient-to-b from-[#00000]  to-[#FFA00A] h-[89vh] flex-col  items-center justify-center ">
-                <div className="w-[30vw]">
-                    <p className="leading-[60px] text-[60px]">Track Your Parcel With Ease</p>
+            <div className="flex flex-row bg-gradient-to-b from-[#808080]  to-white h-[89vh] flex-col  items-center justify-center ">
+                <div className="w-[35vw]">
+                    <p className="leading-[60px] text-[3.3rem] text-[#101010] ">Track Every Parcel in Real Time With Ease</p>
                 </div>
                 <div className="w-[30vw]">
-
+                    <p className="text-black">Enter your tracking ID to see exactly where your shipment is. Sparrow keeps you updated every step of the way.</p>
                 </div>
             </div>
             

@@ -184,16 +184,17 @@ const Swift = () => {
                         :
                         <div className='h-[100%] sm:h-[430px] ring-[1px] ring-[#373435] flex flex-col justify-center  items-center bg-[#101010] '>
                             <div className="mx-[30px] text-gray-300 px-[10px]  my-[20px] text-center">
-                                <p className="  text-[15px]" >Hello! I’m Max, an AI-powered assistant created by Nivakaran.</p>
+                                <p className="  text-[15px]" >Hello! I’m Swift, your AI-powered shipping assistant from Sparrow.</p>
                             
-                                <p className="text-[15px]">I’m here to guide you through Nivakaran’s projects and answer any questions you have along the way. Let’s explore together!</p>
+                                <p className="text-[15px]">
+I’m here to help you track parcels, explore our services, and find the best shipping solutions for your needs. Let’s make shipping simpler, faster, and smarter together!</p>
                             </div>
                         </div>}
 
 
                 
                 <div className="w-[100%] ring-[1px] ring-[#373435] relative sm:rounded-b-[10px] py-[15px] px-[30px] sm:py-[10px] sm:px-[10px] h-[250px] sm:h-[190px] bg-[#000000]">
-                    <textarea onKeyDown={handleKeyDown} onChange={(e) => setMessage(e.target.value)} value={message} className="w-[100%] focus:outline-none h-[100%]  leading-[19px] rounded-[5px] bg-[#101010] text-black py-[8px] px-[8px] bg-white resize-none" placeholder="Ask Max"></textarea>
+                    <textarea onKeyDown={handleKeyDown} onChange={(e) => setMessage(e.target.value)} value={message} className="w-[100%] focus:outline-none h-[100%]  leading-[19px] rounded-[5px] bg-[#101010] text-black py-[8px] px-[8px] bg-white resize-none" placeholder="Ask Swift"></textarea>
                     <div onClick={() => onMessageSubmit(message)} className="w-[70px] ring-[0.5px] ring-[0.5px] ring-[#727376] cursor-pointer hover:bg-black absolute top-[15px] sm:top-[5px] right-[10px] sm:right-[-20px]  h-[70px] rounded-full bg-[#373435] flex items-center justify-center cursor-pointer mt-[10px]">
                         <Image alt="" className="ml-[7px]" src={Send} height={35}  />
                     </div>

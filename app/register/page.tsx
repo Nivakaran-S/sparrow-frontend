@@ -17,7 +17,7 @@ export default function Register() {
       <div className="h-[10vh] bg-white">
           
       </div>
-      <div className="bg-gradient-to-b from-[#00000]  to-[#FFA00A]">
+      <div className="bg-gradient-to-b from-[#808080]  to-white">
         <RegistrationForm/>
       </div>
      <Footer/>

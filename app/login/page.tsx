@@ -17,7 +17,7 @@ export default function Login() {
         <div className="h-[11vh]">
     
         </div>
-        <div className="bg-gradient-to-b from-[#00000]  to-[#FFA00A]">
+        <div className="bg-gradient-to-b from-[#808080]  to-white">
           <LoginForm/>
         </div>
 
