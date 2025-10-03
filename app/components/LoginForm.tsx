@@ -3,12 +3,11 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { loginUser, LoginRequest, AuthResponse, AuthenticationError, tokenManager } from "../api/AuthenticationApi";
 
 export default function LoginForm() {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
-  const [username, setUsername] = useState("");
+  const [userName, setUserName] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -18,47 +17,53 @@ export default function LoginForm() {
     setIsLoading(true);
     setError("");
 
-    const payload: LoginRequest = { username, password };
-
     try {
-      const response: AuthResponse = await loginUser(payload);
-      console.log("Login response:", response);
+      const response = await fetch("https://api-gateway-nine-orpin.vercel.app/api/users/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({ userName, password }),
+      });
 
-      // With cookie-based auth, the tokens are stored in HTTP-only cookies
-      // We only need to store user info in localStorage (non-sensitive data)
-      
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.message || "Login failed");
+        setIsLoading(false);
+        return;
+      }
+
+      console.log("Login response:", data);
+
       // Redirect based on role
-      const roles = response.roles || [];
-      console.log("User roles:", roles);
+      const role = data.role;
+      console.log("User role:", role);
 
-      if (roles.length > 0) {
-        switch (roles[0]) {
-          case "ADMIN":
+      if (role) {
+        switch (role) {
+          case "Admin":
             router.push("/admin");
             break;
-          case "STAFF":
+          case "Staff":
             router.push("/staff");
             break;
-          case "CUSTOMER":
+          case "Customer":
             router.push("/customer");
             break;
-          case "DRIVER":
+          case "Driver":
             router.push("/driver");
             break;
           default:
             router.push("/");
         }
       } else {
-        setError("No roles assigned to user.");
+        setError("No role assigned to user.");
       }
     } catch (err: any) {
       console.error("Login error:", err);
-
-      if (err instanceof AuthenticationError) {
-        setError(err.message);
-      } else {
-        setError("An unexpected error occurred. Please try again.");
-      }
+      setError("An unexpected error occurred. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -78,16 +83,16 @@ export default function LoginForm() {
 
           <form className="w-[100%] flex flex-col gap-[1rem]" onSubmit={handleLogin}>
             <div className="flex flex-col gap-[0.25rem]">
-              <label className="text-[#1D1D1D] text-[1rem]" htmlFor="username">
+              <label className="text-[#1D1D1D] text-[1rem]" htmlFor="userName">
                 Username
               </label>
               <input
                 type="text"
-                id="username"
+                id="userName"
                 className="py-[0.6rem] px-[0.8rem] rounded-[0.5rem] border-[1px] border-[#374151] bg-white text-black outline-none focus:border-[#FFA00A]"
                 placeholder="Enter your username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                value={userName}
+                onChange={(e) => setUserName(e.target.value)}
                 required
                 autoComplete="username"
               />
