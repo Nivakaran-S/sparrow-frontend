@@ -73,7 +73,7 @@ export default function RegistrationForm() {
       const { confirmPassword, ...registrationData } = formData;
 
       // Customer registration endpoint
-      const endpoint = "https://api-gateway-nine-orpin.vercel.app/api/users/register/customer";
+      const endpoint = "https://api-gateway-nine-orpin.vercel.app/api/users/auth/register/customer";
 
       const response = await fetch(endpoint, {
         method: "POST",

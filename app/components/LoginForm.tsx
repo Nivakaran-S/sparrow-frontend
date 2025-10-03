@@ -18,7 +18,7 @@ export default function LoginForm() {
     setError("");
 
     try {
-      const response = await fetch("https://api-gateway-nine-orpin.vercel.app/api/users/login", {
+      const response = await fetch("https://api-gateway-nine-orpin.vercel.app/api/users/auth/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
