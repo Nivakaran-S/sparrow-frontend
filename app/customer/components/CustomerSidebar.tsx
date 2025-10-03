@@ -18,36 +18,36 @@ const CustomerSidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) =>
             </h3>
             <div className="space-y-1">
               <button
-                className={`w-full flex cursor-pointer items-center rounded-[10px] gap-3 px-3 py-3 text-left transition-all border-l-4 ${
+                className={`w-full flex cursor-pointer items-center rounded-[10px] gap-3 px-3 py-2.5 text-left transition-all border-l-4 ${
                   activeTab === "overview"
                     ? "bg-gray-800 text-blue-400 border-l-blue-400"
                     : "text-gray-300 border-l-transparent hover:bg-gray-800 hover:text-blue-400 hover:border-l-blue-400"
                 }`}
                 onClick={() => setActiveTab("overview")}
               >
-                <span className="font-medium">📊 Dashboard Overview</span>
+                <span className="font-medium">Dashboard Overview</span>
               </button>
               
               <button
-                className={`w-full flex cursor-pointer items-center rounded-[10px] gap-3 px-3 py-3 text-left transition-all border-l-4 ${
+                className={`w-full flex cursor-pointer items-center rounded-[10px] gap-3 px-3 py-2.5 text-left transition-all border-l-4 ${
                   activeTab === "profile"
                     ? "bg-gray-800 text-blue-400 border-l-blue-400"
                     : "text-gray-300 border-l-transparent hover:bg-gray-800 hover:text-blue-400 hover:border-l-blue-400"
                 }`}
                 onClick={() => setActiveTab("profile")}
               >
-                <span className="font-medium">👤 My Profile</span>
+                <span className="font-medium">My Profile</span>
               </button>
               
               <button
-                className={`w-full flex cursor-pointer items-center rounded-[10px] gap-3 px-3 py-3 text-left transition-all border-l-4 ${
+                className={`w-full flex cursor-pointer items-center rounded-[10px] gap-3 px-3 py-2.5 text-left transition-all border-l-4 ${
                   activeTab === "billing"
                     ? "bg-gray-800 text-blue-400 border-l-blue-400"
                     : "text-gray-300 border-l-transparent hover:bg-gray-800 hover:text-blue-400 hover:border-l-blue-400"
                 }`}
                 onClick={() => setActiveTab("billing")}
               >
-                <span className="font-medium">💳 Billing & Payment</span>
+                <span className="font-medium">Billing & Payment</span>
               </button>
             </div>
           </div>
@@ -59,36 +59,36 @@ const CustomerSidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) =>
             </h3>
             <div className="space-y-1">
               <button
-                className={`w-full flex cursor-pointer items-center rounded-[10px] gap-3 px-3 py-3 text-left transition-all border-l-4 ${
+                className={`w-full flex cursor-pointer items-center rounded-[10px] gap-3 px-3 py-2.5 text-left transition-all border-l-4 ${
                   activeTab === "parcels"
                     ? "bg-gray-800 text-blue-400 border-l-blue-400"
                     : "text-gray-300 border-l-transparent hover:bg-gray-800 hover:text-blue-400 hover:border-l-blue-400"
                 }`}
                 onClick={() => setActiveTab("parcels")}
               >
-                <span className="font-medium">📦 My Parcels</span>
+                <span className="font-medium">My Parcels</span>
               </button>
               
               <button
-                className={`w-full flex cursor-pointer items-center rounded-[10px] gap-3 px-3 py-3 text-left transition-all border-l-4 ${
+                className={`w-full flex cursor-pointer items-center rounded-[10px] gap-3 px-3 py-2.5 text-left transition-all border-l-4 ${
                   activeTab === "tracking"
                     ? "bg-gray-800 text-blue-400 border-l-blue-400"
                     : "text-gray-300 border-l-transparent hover:bg-gray-800 hover:text-blue-400 hover:border-l-blue-400"
                 }`}
                 onClick={() => setActiveTab("tracking")}
               >
-                <span className="font-medium">📍 Track Shipments</span>
+                <span className="font-medium">Track Shipments</span>
               </button>
               
               <button
-                className={`w-full flex cursor-pointer items-center rounded-[10px] gap-3 px-3 py-3 text-left transition-all border-l-4 ${
+                className={`w-full flex cursor-pointer items-center rounded-[10px] gap-3 px-3 py-2.5 text-left transition-all border-l-4 ${
                   activeTab === "shipping"
                     ? "bg-gray-800 text-blue-400 border-l-blue-400"
                     : "text-gray-300 border-l-transparent hover:bg-gray-800 hover:text-blue-400 hover:border-l-blue-400"
                 }`}
                 onClick={() => setActiveTab("shipping")}
               >
-                <span className="font-medium">🚚 New Shipment</span>
+                <span className="font-medium">New Shipment</span>
               </button>
             </div>
           </div>
@@ -100,25 +100,25 @@ const CustomerSidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) =>
             </h3>
             <div className="space-y-1">
               <button
-                className={`w-full flex cursor-pointer items-center rounded-[10px] gap-3 px-3 py-3 text-left transition-all border-l-4 ${
+                className={`w-full flex cursor-pointer items-center rounded-[10px] gap-3 px-3 py-2.5 text-left transition-all border-l-4 ${
                   activeTab === "support"
                     ? "bg-gray-800 text-blue-400 border-l-blue-400"
                     : "text-gray-300 border-l-transparent hover:bg-gray-800 hover:text-blue-400 hover:border-l-blue-400"
                 }`}
                 onClick={() => setActiveTab("support")}
               >
-                <span className="font-medium">💬 Help & Support</span>
+                <span className="font-medium">Help & Support</span>
               </button>
               
               <button
-                className={`w-full flex cursor-pointer items-center rounded-[10px] gap-3 px-3 py-3 text-left transition-all border-l-4 ${
+                className={`w-full flex cursor-pointer items-center rounded-[10px] gap-3 px-3 py-2.5 text-left transition-all border-l-4 ${
                   activeTab === "history"
                     ? "bg-gray-800 text-blue-400 border-l-blue-400"
                     : "text-gray-300 border-l-transparent hover:bg-gray-800 hover:text-blue-400 hover:border-l-blue-400"
                 }`}
                 onClick={() => setActiveTab("history")}
               >
-                <span className="font-medium">📜 Order History</span>
+                <span className="font-medium">Order History</span>
               </button>
             </div>
           </div>
