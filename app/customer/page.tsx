@@ -1,32 +1,61 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
-
-
+import { tokenManager, authInterceptor, UserResponse } from "../api/AuthenticationApi";
 import CustomerNavigation from "./components/CustomerNavigation";
 import CustomerSidebar from "./components/CustomerSidebar";
 
-export default function AdminDashboard() {
+export default function CustomerDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
-  const [user, setUser] = useState<any>(null);
-  const router = useRouter();
+    const [user, setUser] = useState<any>(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const router = useRouter();
+  
 
   useEffect(() => {
-    const userData = localStorage.getItem('user');
-    if (userData) {
-      const parsedUser = JSON.parse(userData);
-      if (parsedUser.role !== 'admin') {
-        router.push('/login');
-        return;
-      }
-      setUser(parsedUser);
-    } else {
-      router.push('/login');
-    }
-  }, [router]);
-
+      const checkAuth = async () => {
+        try {
+          // Refresh token if expired
+          const accessToken = await authInterceptor.refreshTokenIfNeeded();
   
+          if (!accessToken) {
+            console.log("No valid access token, redirecting...");
+            tokenManager.clearTokens();
+            router.replace('/login');
+            return;
+          }
+  
+          const roles = tokenManager.getRoles();
+          console.log("Authentication check - Token exists:", !!accessToken);
+          console.log("Token expired:", tokenManager.isTokenExpired());
+          console.log("User roles:", roles);
+  
+          if (!roles.includes("CUSTOMER")) {
+            console.log("User not authorized, redirecting...");
+            tokenManager.clearTokens();
+            router.replace('/login');
+            return;
+          }
+  
+          const userData = {
+            username: tokenManager.getUsername(),
+            userId: tokenManager.getUserId(),
+            roles,
+          };
+  
+          console.log("User authenticated:", userData);
+          setUser(userData);
+        } catch (err) {
+          console.error("Auth check failed:", err);
+          tokenManager.clearTokens();
+          router.replace('/login');
+        } finally {
+          setIsLoading(false);
+        }
+      };
+  
+      checkAuth();
+    }, [router]);
 
   if (!user) return (
     <div className="flex items-center justify-center min-h-screen bg-black text-white text-xl">
@@ -36,14 +65,9 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-black text-white">
-      {/* Header */}
-      <CustomerNavigation/>
-
+      <CustomerNavigation />
       <div className="flex min-h-[calc(100vh-80px)]">
-        {/* Sidebar */}
-        <CustomerSidebar activeTab={activeTab} setActiveTab={setActiveTab}/>
-
-        {/* Main Content */}
+        <CustomerSidebar activeTab={activeTab} setActiveTab={setActiveTab} />
         <main className="flex-1 p-8 ml-[18vw] mt-[10vh] overflow-y-auto bg-black">
           {activeTab === 'overview' && <AdminOverview />}
           {activeTab === 'users' && <UserManagement />}
@@ -62,7 +86,6 @@ function AdminOverview() {
   return (
     <div className="space-y-8">
       <h2 className="text-3xl font-bold text-white mb-8">System Overview</h2>
-      
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6 transition-all hover:-translate-y-1 hover:border-blue-500 hover:shadow-lg hover:shadow-blue-500/20 relative overflow-hidden">
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-400 to-blue-600"></div>
@@ -78,7 +101,6 @@ function AdminOverview() {
             <span className="text-green-400">+12% from last month</span>
           </div>
         </div>
-
         <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6 transition-all hover:-translate-y-1 hover:border-blue-500 hover:shadow-lg hover:shadow-blue-500/20 relative overflow-hidden">
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-400 to-blue-600"></div>
           <div className="flex justify-between items-center mb-4">
@@ -93,7 +115,6 @@ function AdminOverview() {
             <span className="text-green-400">+8% from last month</span>
           </div>
         </div>
-
         <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6 transition-all hover:-translate-y-1 hover:border-blue-500 hover:shadow-lg hover:shadow-blue-500/20 relative overflow-hidden">
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-400 to-blue-600"></div>
           <div className="flex justify-between items-center mb-4">
@@ -108,7 +129,6 @@ function AdminOverview() {
             <span className="text-green-400">+5% from last month</span>
           </div>
         </div>
-
         <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6 transition-all hover:-translate-y-1 hover:border-blue-500 hover:shadow-lg hover:shadow-blue-500/20 relative overflow-hidden">
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-400 to-blue-600"></div>
           <div className="flex justify-between items-center mb-4">
@@ -124,7 +144,6 @@ function AdminOverview() {
           </div>
         </div>
       </div>
-
       <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6">
         <h3 className="text-white text-xl font-semibold mb-6">Quick Actions</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -149,10 +168,10 @@ function AdminOverview() {
 // User Management Component
 function UserManagement() {
   const [users] = useState([
-    { id: 1, name: 'John Admin', email: 'admin@sparrow.com', role: 'Admin', status: 'Active' },
-    { id: 2, name: 'Sarah Staff', email: 'staff@sparrow.com', role: 'Staff', status: 'Active' },
-    { id: 3, name: 'Alice Customer', email: 'customer@sparrow.com', role: 'Customer', status: 'Active' },
-    { id: 4, name: 'Bob Driver', email: 'driver@sparrow.com', role: 'Driver', status: 'Active' },
+    { id: 1, name: 'John Admin', email: 'admin@sparrow.com', role: 'ADMIN', status: 'Active' },
+    { id: 2, name: 'Sarah Staff', email: 'staff@sparrow.com', role: 'STAFF', status: 'Active' },
+    { id: 3, name: 'Alice Customer', email: 'customer@sparrow.com', role: 'CUSTOMER', status: 'Active' },
+    { id: 4, name: 'Bob Driver', email: 'driver@sparrow.com', role: 'DRIVER', status: 'Active' },
   ]);
 
   return (
@@ -166,7 +185,6 @@ function UserManagement() {
           Add New User
         </button>
       </div>
-      
       <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl overflow-hidden">
         <div className="p-6 border-b border-gray-700 flex justify-between items-center">
           <h3 className="text-white text-lg font-semibold">All Users</h3>
@@ -185,7 +203,6 @@ function UserManagement() {
             </select>
           </div>
         </div>
-        
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
@@ -272,7 +289,6 @@ function RoleManagement() {
           Create New Role
         </button>
       </div>
-      
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {roles.map(role => (
           <div key={role.id} className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6 transition-all hover:-translate-y-1 hover:border-blue-500 hover:shadow-lg hover:shadow-blue-500/15">
@@ -282,7 +298,6 @@ function RoleManagement() {
                 {role.users} users
               </span>
             </div>
-            
             <div className="mb-6">
               <h4 className="text-white text-sm font-medium mb-3">Permissions:</h4>
               <div className="space-y-2">
@@ -294,7 +309,6 @@ function RoleManagement() {
                 ))}
               </div>
             </div>
-            
             <div className="flex gap-2">
               <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium transition-colors">
                 Edit Role
@@ -318,7 +332,6 @@ function KPIMonitoring() {
         <h2 className="text-3xl font-bold text-white">KPI Monitoring</h2>
         <p className="text-gray-400 mt-1">Track key performance indicators across the system</p>
       </div>
-      
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6 text-center transition-all hover:-translate-y-1 hover:border-blue-500 hover:shadow-lg hover:shadow-blue-500/15">
           <h3 className="text-blue-400 text-lg font-semibold mb-4">Delivery Performance</h3>
@@ -328,7 +341,6 @@ function KPIMonitoring() {
             <p className="text-green-400">2.3% from last month</p>
           </div>
         </div>
-        
         <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6 text-center transition-all hover:-translate-y-1 hover:border-blue-500 hover:shadow-lg hover:shadow-blue-500/15">
           <h3 className="text-blue-400 text-lg font-semibold mb-4">Average Delivery Time</h3>
           <div className="text-white text-4xl font-bold mb-2">2.4 days</div>
@@ -337,7 +349,6 @@ function KPIMonitoring() {
             <p className="text-green-400">0.3 days improved</p>
           </div>
         </div>
-        
         <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6 text-center transition-all hover:-translate-y-1 hover:border-blue-500 hover:shadow-lg hover:shadow-blue-500/15">
           <h3 className="text-blue-400 text-lg font-semibold mb-4">Customer Satisfaction</h3>
           <div className="text-white text-4xl font-bold mb-2">4.7/5</div>
@@ -346,7 +357,6 @@ function KPIMonitoring() {
             <p className="text-green-400">0.2 from last month</p>
           </div>
         </div>
-        
         <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6 text-center transition-all hover:-translate-y-1 hover:border-blue-500 hover:shadow-lg hover:shadow-blue-500/15">
           <h3 className="text-blue-400 text-lg font-semibold mb-4">Cost per Delivery</h3>
           <div className="text-white text-4xl font-bold mb-2">$12.50</div>
@@ -368,7 +378,6 @@ function Reports() {
         <h2 className="text-3xl font-bold text-white">Reports & Analytics</h2>
         <p className="text-gray-400 mt-1">Generate and download comprehensive system reports</p>
       </div>
-      
       <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6">
         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center mb-6">
           <select className="px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none">
@@ -380,7 +389,6 @@ function Reports() {
             Generate Report
           </button>
         </div>
-        
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-gray-900 border border-gray-700 rounded-lg p-4 transition-all hover:border-blue-500">
             <h3 className="text-white font-semibold mb-2">Daily Operations Report</h3>
@@ -389,7 +397,6 @@ function Reports() {
               Download
             </button>
           </div>
-          
           <div className="bg-gray-900 border border-gray-700 rounded-lg p-4 transition-all hover:border-blue-500">
             <h3 className="text-white font-semibold mb-2">Financial Summary</h3>
             <p className="text-gray-400 text-sm mb-4">Revenue and cost analysis</p>
@@ -397,7 +404,6 @@ function Reports() {
               Download
             </button>
           </div>
-          
           <div className="bg-gray-900 border border-gray-700 rounded-lg p-4 transition-all hover:border-blue-500">
             <h3 className="text-white font-semibold mb-2">Performance Analytics</h3>
             <p className="text-gray-400 text-sm mb-4">KPI trends and insights</p>
@@ -419,7 +425,6 @@ function SystemSettings() {
         <h2 className="text-3xl font-bold text-white">System Settings</h2>
         <p className="text-gray-400 mt-1">Configure system-wide settings and preferences</p>
       </div>
-      
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6">
           <h3 className="text-blue-400 text-lg font-semibold mb-6">General Settings</h3>
@@ -452,7 +457,6 @@ function SystemSettings() {
             </div>
           </div>
         </div>
-        
         <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6">
           <h3 className="text-blue-400 text-lg font-semibold mb-6">Security Settings</h3>
           <div className="space-y-4">
@@ -485,7 +489,6 @@ function SystemSettings() {
             </div>
           </div>
         </div>
-        
         <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6">
           <h3 className="text-blue-400 text-lg font-semibold mb-6">Notification Settings</h3>
           <div className="space-y-4">
@@ -521,7 +524,6 @@ function SystemSettings() {
             </div>
           </div>
         </div>
-        
         <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6">
           <h3 className="text-blue-400 text-lg font-semibold mb-6">System Maintenance</h3>
           <div className="space-y-4">
@@ -540,7 +542,6 @@ function SystemSettings() {
           </div>
         </div>
       </div>
-      
       <div className="flex justify-end gap-4 pt-6 border-t border-gray-700">
         <button className="px-6 py-2 bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200 rounded-lg font-medium transition-colors">
           Cancel Changes

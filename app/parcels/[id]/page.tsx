@@ -5,7 +5,7 @@ import { useMemo } from "react";
 import "../../home.css";
 import { demoParcels } from "@/data/demoParcels";
 import { demoHistory } from "@/data/demoHistory";
-import StatusTimeline from "@/components/StatusTimeline";
+import StatusTimeline from "@/app/staff/components/StatusTimeline";
 import dynamic from "next/dynamic";
 
 const TinyMap = dynamic(() => import("./tiny-map"), { ssr: false });

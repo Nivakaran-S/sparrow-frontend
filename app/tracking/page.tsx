@@ -1,6 +1,6 @@
 "use client";
 
-import LiveMap from "@/components/LiveMap";
+import LiveMap from "@/app/staff/components/LiveMap";
 import "../home.css";
 import Link from "next/link";
 

@@ -1,27 +1,37 @@
-'use client'
+"use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { tokenManager, authInterceptor, UserResponse } from "../../api/AuthenticationApi";
 
 const CustomerNavigation = () => {
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<UserResponse | null>(null);
   const router = useRouter();
 
   useEffect(() => {
-    const userData = localStorage.getItem('user');
-    if (userData) {
-      const parsedUser = JSON.parse(userData);
-      if (parsedUser.role !== 'customer') {
-        router.push('/login');
+    const checkAuth = () => {
+      const isAuthenticated = tokenManager.isAuthenticated();
+      const roles = tokenManager.getRoles();
+
+      if (!isAuthenticated || !roles.includes('CUSTOMER')) {
+        tokenManager.clearTokens(); // clear any invalid token
+        router.replace('/login');
         return;
       }
-      setUser(parsedUser);
-    } else {
-      router.push('/login');
-    }
+
+      const userData = {
+        name: tokenManager.getUsername(),
+        roles
+      };
+
+      setUser(userData);
+    };
+
+    checkAuth();
   }, [router]);
 
+
   const handleLogout = () => {
-    localStorage.removeItem('user');
+    tokenManager.clearTokens();
     router.push('/login');
   };
 
@@ -47,9 +57,9 @@ const CustomerNavigation = () => {
             </div>
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold">
-                {user.name.charAt(0)}
+                {user.firstName?.charAt(0) || 'U'}
               </div>
-              <span className="text-white font-medium">{user.name}</span>
+              <span className="text-white font-medium">{user.firstName} {user.lastName}</span>
               <button
                 onClick={handleLogout}
                 className="ml-2 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white border-none rounded-lg text-sm font-medium cursor-pointer transition-colors"

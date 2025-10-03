@@ -12,8 +12,54 @@ import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { useEffect, useMemo, useState } from "react";
 import supercluster from "supercluster";
-import type { DemoParcel } from "@/data/demoParcels";
 
+type DemoParcel = {
+  id: string;
+  code: string;
+  city: string;
+  lat: number;
+  lng: number;
+  status: string;
+  eta?: string;
+};
+
+const demoParcels: DemoParcel[] = [
+  { id: "SP2024001", code: "SP2024001", city: "New York",     lat: 40.7128, lng: -74.0060, status: "Pending",     eta: "—" },
+  { id: "SP2024002", code: "SP2024002", city: "Los Angeles",  lat: 34.0522, lng: -118.2437, status: "Processing", eta: "—" },
+  { id: "SP2024003", code: "SP2024003", city: "Chicago",      lat: 41.8781, lng: -87.6298,  status: "Ready",      eta: "—" },
+  { id: "SP2024004", code: "SP2024004", city: "Houston",      lat: 29.7604, lng: -95.3698,  status: "In Transit", eta: "—" },
+];
+
+
+export type StatusEvent = {
+  time: string;       // ISO string
+  status: string;     // e.g., "Dispatched", "In Transit"
+  note?: string;
+};
+
+// Map parcelId -> history
+const demoHistory: Record<string, StatusEvent[]> = {
+  SP2024001: [
+    { time: "2025-09-03T07:40:00Z", status: "Dispatched", note: "Left origin facility" },
+    { time: "2025-09-03T12:15:00Z", status: "In Transit", note: "On route to hub" },
+    { time: "2025-09-03T18:30:00Z", status: "Processing", note: "Scanned at NY hub" },
+  ],
+  SP2024002: [
+    { time: "2025-09-03T06:05:00Z", status: "Dispatched", note: "Left origin facility" },
+    { time: "2025-09-03T11:20:00Z", status: "In Transit" },
+    { time: "2025-09-03T19:10:00Z", status: "Ready", note: "Out for handoff at LA DC" },
+  ],
+  SP2024003: [
+    { time: "2025-09-02T09:00:00Z", status: "Dispatched" },
+    { time: "2025-09-02T15:30:00Z", status: "In Transit" },
+    { time: "2025-09-03T10:00:00Z", status: "Processing", note: "Arrived at Chicago hub" },
+  ],
+  SP2024004: [
+    { time: "2025-09-02T08:10:00Z", status: "Dispatched" },
+    { time: "2025-09-02T13:45:00Z", status: "In Transit" },
+    { time: "2025-09-03T09:25:00Z", status: "In Transit", note: "Approaching Houston" },
+  ],
+};
 
 type BBox = [number, number, number, number];
 

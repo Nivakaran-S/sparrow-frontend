@@ -1,46 +1,72 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
-
 import AdminNavigation from "./components/AdminNavigation";
 import Sidebar from "./components/Sidebar";
+import { tokenManager, authInterceptor } from "../api/AuthenticationApi";
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
   const [user, setUser] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
-  useEffect(() => {
-    const userData = localStorage.getItem('user');
-    if (userData) {
-      const parsedUser = JSON.parse(userData);
-      if (parsedUser.role !== 'admin') {
-        router.push('/login');
-        return;
-      }
-      setUser(parsedUser);
-    } else {
-      router.push('/login');
-    }
-  }, [router]);
-
+  // useEffect(() => {
+  //     const checkAuth = async () => {
+  //       try {
+  //         // Check if user is authenticated
+  //         if (!tokenManager.isAuthenticated()) {
+  //           router.push("/login");
+  //           return;
+  //         }
   
+  //         // Check if user has staff role
+  //         if (!tokenManager.hasRole("ADMIN")) {
+  //           router.push("/login");
+  //           return;
+  //         }
+  
+  //         // Get user info from token manager
+  //         const userId = tokenManager.getUserId();
+  //         const username = tokenManager.getUsername();
+  //         const roles = tokenManager.getRoles();
+          
+  //         if (userId && username) {
+  //           setUser({
+  //             id: userId,
+  //             name: username,
+  //             email: "", // You might want to fetch this from API if needed
+  //             role: roles.includes("ADMIN") ? "ADMIN" : ""
+  //           });
+  //         }
+  //       } catch (error) {
+  //         console.error("Authentication error:", error);
+      
+  //         router.push("/login");
+  //       } finally {
+  //         setIsLoading(false);
+  //       }
+  //     };
+  
+  //     checkAuth();
+  //   }, []);
 
-  if (!user) return (
+  if (isLoading) return (
     <div className="flex items-center justify-center min-h-screen bg-black text-white text-xl">
       Loading...
     </div>
   );
 
+  //if (!user) return null;
+
   return (
     <div className="min-h-screen bg-black text-white">
       {/* Header */}
-      <AdminNavigation/>
+      <AdminNavigation />
 
       <div className="flex min-h-[calc(100vh-80px)]">
         {/* Sidebar */}
-        <Sidebar activeTab={activeTab} setActiveTab={setActiveTab}/>
+        <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
 
         {/* Main Content */}
         <main className="flex-1 p-8 ml-[18vw] mt-[10vh] overflow-y-auto bg-black">
@@ -56,74 +82,26 @@ export default function AdminDashboard() {
   );
 }
 
-// Admin Overview Component
+
+// -------------------- COMPONENTS -------------------- //
+
 function AdminOverview() {
   return (
     <div className="space-y-8">
       <h2 className="text-3xl font-bold text-white mb-8">System Overview</h2>
-      
+      {/* Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6 transition-all hover:-translate-y-1 hover:border-blue-500 hover:shadow-lg hover:shadow-blue-500/20 relative overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-400 to-blue-600"></div>
-          <div className="flex justify-between items-center mb-4">
-            <p className="text-gray-400 text-sm font-medium">Total Users</p>
-            <div className="bg-blue-500/20 rounded-full w-10 h-10 flex items-center justify-center text-blue-400 text-xl">
-              👥
-            </div>
-          </div>
-          <h3 className="text-white text-4xl font-bold mb-2">1,247</h3>
-          <div className="flex items-center gap-1 text-sm">
-            <span className="text-green-400">↗</span>
-            <span className="text-green-400">+12% from last month</span>
-          </div>
-        </div>
-
-        <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6 transition-all hover:-translate-y-1 hover:border-blue-500 hover:shadow-lg hover:shadow-blue-500/20 relative overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-400 to-blue-600"></div>
-          <div className="flex justify-between items-center mb-4">
-            <p className="text-gray-400 text-sm font-medium">Total Parcels</p>
-            <div className="bg-blue-500/20 rounded-full w-10 h-10 flex items-center justify-center text-blue-400 text-xl">
-              📦
-            </div>
-          </div>
-          <h3 className="text-white text-4xl font-bold mb-2">8,456</h3>
-          <div className="flex items-center gap-1 text-sm">
-            <span className="text-green-400">↗</span>
-            <span className="text-green-400">+8% from last month</span>
-          </div>
-        </div>
-
-        <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6 transition-all hover:-translate-y-1 hover:border-blue-500 hover:shadow-lg hover:shadow-blue-500/20 relative overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-400 to-blue-600"></div>
-          <div className="flex justify-between items-center mb-4">
-            <p className="text-gray-400 text-sm font-medium">Active Drivers</p>
-            <div className="bg-blue-500/20 rounded-full w-10 h-10 flex items-center justify-center text-blue-400 text-xl">
-              🚚
-            </div>
-          </div>
-          <h3 className="text-white text-4xl font-bold mb-2">89</h3>
-          <div className="flex items-center gap-1 text-sm">
-            <span className="text-green-400">↗</span>
-            <span className="text-green-400">+5% from last month</span>
-          </div>
-        </div>
-
-        <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6 transition-all hover:-translate-y-1 hover:border-blue-500 hover:shadow-lg hover:shadow-blue-500/20 relative overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-400 to-blue-600"></div>
-          <div className="flex justify-between items-center mb-4">
-            <p className="text-gray-400 text-sm font-medium">Revenue</p>
-            <div className="bg-blue-500/20 rounded-full w-10 h-10 flex items-center justify-center text-blue-400 text-xl">
-              💰
-            </div>
-          </div>
-          <h3 className="text-white text-4xl font-bold mb-2">$45,231</h3>
-          <div className="flex items-center gap-1 text-sm">
-            <span className="text-red-400">↘</span>
-            <span className="text-red-400">-3% from last month</span>
-          </div>
-        </div>
+        {/* Total Users */}
+        <StatCard title="Total Users" value="1,247" icon="👥" change="+12% from last month" positive />
+        {/* Total Parcels */}
+        <StatCard title="Total Parcels" value="8,456" icon="📦" change="+8% from last month" positive />
+        {/* Active Drivers */}
+        <StatCard title="Active Drivers" value="89" icon="🚚" change="+5% from last month" positive />
+        {/* Revenue */}
+        <StatCard title="Revenue" value="$45,231" icon="💰" change="-3% from last month" positive={false} />
       </div>
 
+      {/* Quick Actions */}
       <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6">
         <h3 className="text-white text-xl font-semibold mb-6">Quick Actions</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -145,13 +123,32 @@ function AdminOverview() {
   );
 }
 
+// StatCard helper
+function StatCard({ title, value, icon, change, positive = true }: any) {
+  return (
+    <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6 transition-all hover:-translate-y-1 hover:border-blue-500 hover:shadow-lg hover:shadow-blue-500/20 relative overflow-hidden">
+      <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-400 to-blue-600"></div>
+      <div className="flex justify-between items-center mb-4">
+        <p className="text-gray-400 text-sm font-medium">{title}</p>
+        <div className="bg-blue-500/20 rounded-full w-10 h-10 flex items-center justify-center text-blue-400 text-xl">{icon}</div>
+      </div>
+      <h3 className="text-white text-4xl font-bold mb-2">{value}</h3>
+      <div className="flex items-center gap-1 text-sm">
+        <span className={positive ? "text-green-400" : "text-red-400"}>{positive ? "↗" : "↘"}</span>
+        <span className={positive ? "text-green-400" : "text-red-400"}>{change}</span>
+      </div>
+    </div>
+  );
+}
+
+
 // User Management Component
 function UserManagement() {
   const [users] = useState([
-    { id: 1, name: 'John Admin', email: 'admin@sparrow.com', role: 'Admin', status: 'Active' },
-    { id: 2, name: 'Sarah Staff', email: 'staff@sparrow.com', role: 'Staff', status: 'Active' },
-    { id: 3, name: 'Alice Customer', email: 'customer@sparrow.com', role: 'Customer', status: 'Active' },
-    { id: 4, name: 'Bob Driver', email: 'driver@sparrow.com', role: 'Driver', status: 'Active' },
+    { id: 1, name: 'John Admin', email: 'admin@sparrow.com', role: 'ADMIN', status: 'Active' },
+    { id: 2, name: 'Sarah Staff', email: 'staff@sparrow.com', role: 'STAFF', status: 'Active' },
+    { id: 3, name: 'Alice Customer', email: 'customer@sparrow.com', role: 'CUSTOMER', status: 'Active' },
+    { id: 4, name: 'Bob Driver', email: 'driver@sparrow.com', role: 'DRIVER', status: 'Active' },
   ]);
 
   return (
@@ -377,7 +374,7 @@ function Reports() {
           </select>
           <button className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-6 py-2 rounded-lg font-medium transition-all hover:-translate-y-1 shadow-lg shadow-blue-600/30">
             Generate Report
-          </button>
+            </button>
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

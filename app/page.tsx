@@ -48,11 +48,7 @@ export default function Home() {
       <Services setIsChatOpen={setIsChatOpen}/>
       
 
-      
-      
-
-      
-      
+  
       <div className="h-[50vh] bg-black">
 
       </div>
