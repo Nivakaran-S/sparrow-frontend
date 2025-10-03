@@ -4,6 +4,9 @@ import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+// Base API URL
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api-gateway-nine-orpin.vercel.app";
+
 export default function LoginForm() {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
@@ -18,12 +21,12 @@ export default function LoginForm() {
     setError("");
 
     try {
-      const response = await fetch("https://api-gateway-nine-orpin.vercel.app/api/users/auth/login", {
+      const response = await fetch(`${API_BASE_URL}/api/users/auth/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        credentials: "include",
+        credentials: "include", // Important: This ensures cookies are sent and received
         body: JSON.stringify({ userName, password }),
       });
 
@@ -37,6 +40,7 @@ export default function LoginForm() {
 
       console.log("Login response:", data);
 
+      // The JWT token is automatically stored in cookies by the backend
       // Redirect based on role
       const role = data.role;
       console.log("User role:", role);
