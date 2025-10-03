@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 
 import StaffNavigation from "./components/StaffNavigation";
 import StaffSidebar from "./components/StaffSidebar";
-import { tokenManager, AuthenticationError } from "../api/AuthenticationApi";
+
 import StaffOverview from "./pages/StaffOverview";
 import ParcelConsolidation from "./pages/ParcelConsolidation";
 import ParcelManagement from "./pages/ParcelManagement";
@@ -19,23 +19,7 @@ export default function StaffDashboard() {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
-  useEffect(() => {
-    const userId = tokenManager.getUserId();
-    const username = tokenManager.getUsername();
-    const userRoles = tokenManager.getRoles();
-    
-    if (userId && username) {
-      const userData = {
-        id: userId,
-        username: username,
-        roles: userRoles,
-        email: ""
-      };
-      setUser(userData);
-    }
-    setLoading(false);
-  }, []);
-
+  
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-black text-white text-xl">

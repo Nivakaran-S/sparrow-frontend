@@ -1,7 +1,6 @@
 'use client'
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { tokenManager } from "../../api/AuthenticationApi";
 
 interface User {
   id: string;
@@ -19,23 +18,7 @@ const AdminNavigation = () => {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const notificationsRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    // Just get user info from token manager
-    const userId = tokenManager.getUserId();
-    const username = tokenManager.getUsername();
-    const roles = tokenManager.getRoles();
-    
-    if (userId && username) {
-      setUser({
-        id: userId,
-        name: username,
-        email: "", // Can be fetched from API if needed
-        role: roles.includes("ADMIN") ? "ADMIN" : ""
-      });
-    }
-    setIsLoading(false);
-  }, []);
-
+  
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -52,10 +35,7 @@ const AdminNavigation = () => {
     };
   }, []);
 
-  const handleLogout = () => {
-    tokenManager.clearTokens();
-    router.push("/login");
-  };
+
 
   const notifications = [
     { id: 1, text: "New patient registration requires approval", time: "10 mins ago" },
@@ -151,7 +131,7 @@ const AdminNavigation = () => {
                   </button>
                   <div className="border-t border-gray-700"></div>
                   <button
-                    onClick={handleLogout}
+                  
                     className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-gray-700 hover:text-red-300"
                   >
                     Logout

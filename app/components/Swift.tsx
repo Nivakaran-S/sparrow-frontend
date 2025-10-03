@@ -5,7 +5,6 @@ import Send from '../images/send.png';
 import { v4 as uuidv4 } from 'uuid';
 import './Max.css';
 
-import { sendMessage, startNewConversation } from "../api/ChatbotApi";
 
 type Message = {
   type: 'sender' | 'receiver';
@@ -48,24 +47,24 @@ const Swift = () => {
     try {
       setTyping(true);
 
-      const res = await sendMessage(msg);
+      // const res = await sendMessage(msg);
 
-      if (res.success) {
-        setThreadId(res.thread_id || threadId);
-        localStorage.setItem("threadId", res.thread_id || threadId);
+      // if (res.success) {
+      //   setThreadId(res.thread_id || threadId);
+      //   localStorage.setItem("threadId", res.thread_id || threadId);
 
-        const answer = res.response || "No response received";
+      //   const answer = res.response || "No response received";
 
-        setMessageCollection((prevMessages) => [
-          ...prevMessages,
-          { type: "receiver", content: answer, timestamp: Date.now() }
-        ]);
-      } else {
-        setMessageCollection((prevMessages) => [
-          ...prevMessages,
-          { type: "receiver", content: "Error: " + (res.error || "Unknown error"), timestamp: Date.now() }
-        ]);
-      }
+      //   setMessageCollection((prevMessages) => [
+      //     ...prevMessages,
+      //     { type: "receiver", content: answer, timestamp: Date.now() }
+      //   ]);
+      // } else {
+      //   setMessageCollection((prevMessages) => [
+      //     ...prevMessages,
+      //     { type: "receiver", content: "Error: " + (res.error || "Unknown error"), timestamp: Date.now() }
+      //   ]);
+      // }
     } catch (err: any) {
       console.error("Error invoking API: ", err);
       setMessageCollection((prevMessages) => [

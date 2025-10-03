@@ -3,7 +3,6 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import AdminNavigation from "./components/AdminNavigation";
 import Sidebar from "./components/Sidebar";
-import { tokenManager, authInterceptor } from "../api/AuthenticationApi";
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('overview');

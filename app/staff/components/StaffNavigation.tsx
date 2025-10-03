@@ -1,7 +1,6 @@
 'use client'
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { tokenManager } from "../../api/AuthenticationApi";
 
 interface User {
   id: string;
@@ -20,22 +19,7 @@ const StaffNavigation = () => {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const notificationsRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    // Get user info from token manager
-    const userId = tokenManager.getUserId();
-    const username = tokenManager.getUsername();
-    const roles = tokenManager.getRoles();
-    
-    if (userId && username) {
-      setUser({
-        id: userId,
-        name: username,
-        email: "",
-        role: roles.includes("STAFF") ? "STAFF" : ""
-      });
-    }
-    setIsLoading(false);
-  }, []);
+  
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -54,7 +38,7 @@ const StaffNavigation = () => {
   }, []);
 
   const handleLogout = () => {
-    tokenManager.clearTokens();
+    
     router.push("/login");
   };
 

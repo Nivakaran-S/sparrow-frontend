@@ -1,40 +1,18 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { tokenManager, authInterceptor, UserResponse } from "../../api/AuthenticationApi";
+
+type UserResponse = {
+  firstName?: string;
+  lastName?: string;
+  // Add other fields as needed
+};
 
 const CustomerNavigation = () => {
   const [user, setUser] = useState<UserResponse | null>(null);
   const router = useRouter();
 
-  useEffect(() => {
-    const checkAuth = () => {
-      const isAuthenticated = tokenManager.isAuthenticated();
-      const roles = tokenManager.getRoles();
-
-      if (!isAuthenticated || !roles.includes('CUSTOMER')) {
-        tokenManager.clearTokens(); // clear any invalid token
-        router.replace('/login');
-        return;
-      }
-
-      const userData = {
-        name: tokenManager.getUsername(),
-        roles
-      };
-
-      setUser(userData);
-    };
-
-    checkAuth();
-  }, [router]);
-
-
-  const handleLogout = () => {
-    tokenManager.clearTokens();
-    router.push('/login');
-  };
-
+  
   if (!user) return (
     <div className="flex items-center justify-center min-h-screen bg-black text-white text-xl">
       Loading...
@@ -61,7 +39,6 @@ const CustomerNavigation = () => {
               </div>
               <span className="text-white font-medium">{user.firstName} {user.lastName}</span>
               <button
-                onClick={handleLogout}
                 className="ml-2 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white border-none rounded-lg text-sm font-medium cursor-pointer transition-colors"
               >
                 Logout

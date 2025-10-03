@@ -3,7 +3,6 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import DriverNavigation from "./components/DriverNavigation";
 import DriverSidebar from "./components/DriverSidebar";
-import { tokenManager, authInterceptor } from "../api/AuthenticationApi";
 
 export default function DriverDashboard() {
   const [activeTab, setActiveTab] = useState("overview");
@@ -12,39 +11,7 @@ export default function DriverDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const accessToken = await authInterceptor.refreshTokenIfNeeded();
-        if (!accessToken) {
-          tokenManager.clearTokens();
-          router.replace("/login");
-          return;
-        }
-
-        const roles = tokenManager.getRoles();
-        if (!roles.includes("DRIVER")) {
-          tokenManager.clearTokens();
-          router.replace("/login");
-          return;
-        }
-
-        setUser({
-          username: tokenManager.getUsername(),
-          userId: tokenManager.getUserId(),
-          roles,
-        });
-      } catch (err) {
-        tokenManager.clearTokens();
-        router.replace("/login");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    checkAuth();
-  }, [router]);
-
+  
   if (isLoading)
     return (
       <div className="flex items-center justify-center min-h-screen bg-black text-white text-xl">

@@ -1,7 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { tokenManager, authInterceptor, UserResponse } from "../api/AuthenticationApi";
 import CustomerNavigation from "./components/CustomerNavigation";
 import CustomerSidebar from "./components/CustomerSidebar";
 
@@ -12,50 +11,6 @@ export default function CustomerDashboard() {
     const router = useRouter();
   
 
-  useEffect(() => {
-      const checkAuth = async () => {
-        try {
-          // Refresh token if expired
-          const accessToken = await authInterceptor.refreshTokenIfNeeded();
-  
-          if (!accessToken) {
-            console.log("No valid access token, redirecting...");
-            tokenManager.clearTokens();
-            router.replace('/login');
-            return;
-          }
-  
-          const roles = tokenManager.getRoles();
-          console.log("Authentication check - Token exists:", !!accessToken);
-          console.log("Token expired:", tokenManager.isTokenExpired());
-          console.log("User roles:", roles);
-  
-          if (!roles.includes("CUSTOMER")) {
-            console.log("User not authorized, redirecting...");
-            tokenManager.clearTokens();
-            router.replace('/login');
-            return;
-          }
-  
-          const userData = {
-            username: tokenManager.getUsername(),
-            userId: tokenManager.getUserId(),
-            roles,
-          };
-  
-          console.log("User authenticated:", userData);
-          setUser(userData);
-        } catch (err) {
-          console.error("Auth check failed:", err);
-          tokenManager.clearTokens();
-          router.replace('/login');
-        } finally {
-          setIsLoading(false);
-        }
-      };
-  
-      checkAuth();
-    }, [router]);
 
   if (!user) return (
     <div className="flex items-center justify-center min-h-screen bg-black text-white text-xl">
