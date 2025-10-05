@@ -27,18 +27,18 @@ export default function Login() {
             </div>
             <div className="text-black leading-[26px] w-[20vw] bg-[#808080] px-[10px] py-[10px] rounded-[10px] ring-[0.5px] ring-black">
               <p className="text-[23px]">Staff</p>
-              <p>Username: james</p>
-              <p>Password: james123</p>
+              <p>Username: tony</p>
+              <p>Password: tony123</p>
             </div>
             <div className="text-black leading-[26px] w-[20vw] bg-[#808080] px-[10px] py-[10px] rounded-[10px] ring-[0.5px] ring-black">
               <p className="text-[23px]">Admin</p>
-              <p>Username: james</p>
-              <p>Password: james123</p>
+              <p>Username: steve</p>
+              <p>Password: steve123</p>
             </div>
             <div className="text-black leading-[26px] w-[20vw] bg-[#808080] px-[10px] py-[10px] rounded-[10px] ring-[0.5px] ring-black">
               <p className="text-[23px]">Driver</p>
-              <p>Username: james</p>
-              <p>Password: james123</p>
+              <p>Username: jack</p>
+              <p>Password: jack123</p>
             </div>
           </div>
 
