@@ -12,7 +12,6 @@ import NewShipment from "./pages/NewShipment";
 import HelpSupport from "./pages/HelpSupport";
 import OrderHistory from "./pages/OrderHistory";
 
-// Base API URL
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api-gateway-nine-orpin.vercel.app";
 
 export default function CustomerDashboard() {
@@ -22,44 +21,62 @@ export default function CustomerDashboard() {
   const router = useRouter();
 
   useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const response = await fetch(`${API_BASE_URL}/check-cookie`, {
-          method: 'GET',
-          credentials: 'include', // Important: Send cookies with request
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
+    checkAuth();
+  }, []);
 
-        if (!response.ok) {
-          // Unauthorized - redirect to login
-          router.push("/login");
-          return;
-        }
+  const checkAuth = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/check-cookie`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
 
-        const data = await response.json();
+      if (!response.ok) {
+        router.push("/login");
+        return;
+      }
+
+      const data = await response.json();
+      
+      if (data.role !== "Customer") {
+        router.push("/login");
+        return;
+      }
+
+      // Fetch customer details
+      const customerResponse = await fetch(`${API_BASE_URL}/api/users/customer/${data.id}`, {
+        credentials: 'include',
+      });
+
+      if (customerResponse.ok) {
+        const customerData = await customerResponse.json();
+        const customer = customerData[0];
         
-        // Check if user has customer role
-        if (data.role !== "Customer") {
-          router.push("/login");
-          return;
-        }
-
+        setUser({
+          id: data.id,
+          role: data.role,
+          firstName: customer.firstName,
+          lastName: customer.lastName,
+          email: customer.email,
+          phoneNumber: customer.phoneNumber,
+          gender: customer.gender
+        });
+      } else {
         setUser({
           id: data.id,
           role: data.role,
         });
-      } catch (error) {
-        console.error("Authentication error:", error);
-        router.push("/login");
-      } finally {
-        setIsLoading(false);
       }
-    };
-
-    checkAuth();
-  }, [router]);
+    } catch (error) {
+      console.error("Authentication error:", error);
+      router.push("/login");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   if (isLoading) return (
     <div className="flex items-center justify-center min-h-screen bg-black text-white text-xl">
@@ -68,37 +85,52 @@ export default function CustomerDashboard() {
     </div>
   );
 
-
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-blue-900 text-white">
       <CustomerNavigation user={user} />
-      <div className="flex min-h-[calc(100vh-80px)]">
+      <div className="flex   min-h-[calc(100vh-80px)]">
         <CustomerSidebar activeTab={activeTab} setActiveTab={setActiveTab} />
-        <main className="flex-1 p-8 ml-[18vw] mt-[10vh] overflow-y-auto bg-black">
+        <main className="flex-1 p-8 ml-[18vw] min-h-[90vh]  mt-[10vh] overflow-y-auto bg-[#1A1A1A]">
           {activeTab === 'overview' && <CustomerOverview />}
           {activeTab === 'profile' && <CustomerProfile />}
           {activeTab === 'billing' && <BillingPayment />}
           {activeTab === 'parcels' && <MyParcels />}
           {activeTab === 'tracking' && <TrackShipments />}
-          {activeTab === 'shipping' && <NewShipment />}
+          {activeTab === 'newShipment' && <NewShipment />}
           {activeTab === 'support' && <HelpSupport />}
           {activeTab === 'history' && <OrderHistory />}
+          {activeTab === 'addresses' && (
+            <div className="text-white">
+              <h2 className="text-3xl font-bold mb-2">Saved Addresses</h2>
+              <p className="text-gray-400 mb-8">Manage your shipping and billing addresses</p>
+              <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl border border-gray-700 p-8 text-center">
+                <div className="text-6xl mb-4">📍</div>
+                <p className="text-gray-400">This feature is coming soon!</p>
+              </div>
+            </div>
+          )}
+          {activeTab === 'consolidation' && (
+            <div className="text-white">
+              <h2 className="text-3xl font-bold mb-2">Consolidation Requests</h2>
+              <p className="text-gray-400 mb-8">Combine multiple parcels into one shipment</p>
+              <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl border border-gray-700 p-8 text-center">
+                <div className="text-6xl mb-4">📋</div>
+                <p className="text-gray-400">This feature is coming soon!</p>
+              </div>
+            </div>
+          )}
+          {activeTab === 'receipts' && (
+            <div className="text-white">
+              <h2 className="text-3xl font-bold mb-2">Receipts</h2>
+              <p className="text-gray-400 mb-8">View and download your receipts</p>
+              <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl border border-gray-700 p-8 text-center">
+                <div className="text-6xl mb-4">🧾</div>
+                <p className="text-gray-400">This feature is coming soon!</p>
+              </div>
+            </div>
+          )}
         </main>
       </div>
     </div>
   );
 }
-
-// Component placeholders (add your actual implementations)
-
-
-
-
-
-
-
-
-
-
-
-

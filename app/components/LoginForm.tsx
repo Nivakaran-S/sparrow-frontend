@@ -74,10 +74,10 @@ export default function LoginForm() {
   };
 
   return (
-    <div className="min-h-[89vh] flex items-center justify-center py-[1rem]">
+    <div className="min-h-[89vh] w-[500px] flex items-center justify-center py-[1rem]">
       <div className="flex items-center justify-center w-[100%] max-w-[400px] h-[60vh] bg-white rounded-[1rem] border-[1.5px] border-[#101010] overflow-hidden">
         <div className="flex flex-col items-center justify-center py-[2rem] px-[1.5rem] w-[100%] max-w-[320px]">
-          <h2 className="text-[1.9rem] mb-[0.2rem] text-[#101010]">Sign In</h2>
+          <h2 className="text-[1.9rem] mb-[0.2rem] text-[#101010]">Welcome Back:)</h2>
 
           {error && (
             <div className="w-full text-red-600 text-sm mb-[1rem] p-2 bg-red-50 rounded border border-red-200">
