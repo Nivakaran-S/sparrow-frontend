@@ -6,7 +6,9 @@ import Sidebar from "./components/Sidebar";
 import AdminOverview from "./pages/AdminOverview";
 import UserManagement from "./pages/UserManagement";
 import RoleManagement from "./pages/RoleManagement";
+
 import KPIMonitoring from "./pages/KPIMonitoring";
+import SystemLogs from "./pages/SystemLogs";
 import Reports from "./pages/Reports";
 import SystemSettings from "./pages/SystemSettings";
 
@@ -16,7 +18,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api-gatewa
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
   const [user, setUser] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
@@ -45,7 +47,7 @@ export default function AdminDashboard() {
           return;
         }
   
-        // Fetch customer details
+        // Fetch admin details
         const adminResponse = await fetch(`${API_BASE_URL}/api/users/admin/${data.id}`, {
           credentials: 'include',
         });
@@ -86,7 +88,7 @@ export default function AdminDashboard() {
 
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-orange-500 text-white">
       {/* Header */}
       <AdminNavigation user={user} />
 
@@ -95,11 +97,12 @@ export default function AdminDashboard() {
         <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
 
         {/* Main Content */}
-        <main className="flex-1 p-8 ml-[18vw] mt-[10vh] overflow-y-auto bg-black">
+        <main className="flex-1 p-8 ml-[18vw] mt-[10vh] overflow-y-auto bg-[#1D1D1D]">
           {activeTab === 'overview' && <AdminOverview />}
           {activeTab === 'users' && <UserManagement />}
           {activeTab === 'roles' && <RoleManagement />}
           {activeTab === 'kpis' && <KPIMonitoring />}
+          {activeTab === 'logs' && <SystemLogs />}
           {activeTab === 'reports' && <Reports />}
           {activeTab === 'settings' && <SystemSettings />}
         </main>
@@ -107,5 +110,3 @@ export default function AdminDashboard() {
     </div>
   );
 }
-
-
