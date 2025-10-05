@@ -1,25 +1,22 @@
-'use client'
+"use client";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-}
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api-gateway-nine-orpin.vercel.app";
 
-const DriverNavigation = () => {
-  const [user, setUser] = useState<User | null>(null);
+type UserResponse = {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+};
+
+const DriverNavigation = ({ user }: { user?: UserResponse }) => {
+  const router = useRouter();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [authError, setAuthError] = useState<string | null>(null);
-  const router = useRouter();
+  
   const dropdownRef = useRef<HTMLDivElement>(null);
   const notificationsRef = useRef<HTMLDivElement>(null);
-
-  
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -37,50 +34,49 @@ const DriverNavigation = () => {
     };
   }, []);
 
-  const handleLogout = () => {
-    router.push("/login");
+  const handleLogout = async () => {
+    try {
+      await fetch(`${API_BASE_URL}/logout`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      router.push('/login');
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
   };
 
   const notifications = [
-    { id: 1, text: "New patient registration requires approval", time: "10 mins ago" },
-    { id: 2, text: "Appointment scheduled for tomorrow", time: "1 hour ago" },
-    { id: 3, text: "Inventory low on medical supplies", time: "2 hours ago" },
+    { id: 1, text: "Your parcel TRK001 has been shipped", time: "10 mins ago", type: "info" },
+    { id: 2, text: "Parcel TRK002 is out for delivery", time: "1 hour ago", type: "success" },
+    { id: 3, text: "New shipping rates available", time: "2 hours ago", type: "info" },
   ];
 
-  if (authError) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-black text-white text-xl">
-        <div className="text-center">
-          <div className="text-red-500 text-2xl mb-4">Authentication Error</div>
-          <div className="mb-4">{authError}</div>
-          <button
-            onClick={() => router.push("/login")}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-          >
-            Go to Login
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-black text-white text-xl">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-        <span className="ml-4">Loading...</span>
-      </div>
-    );
-  }
+  if (!user) return (
+    <div className="flex items-center justify-center min-h-screen bg-black text-white text-xl">
+      Loading...
+    </div>
+  );
 
   return (
-    <div className="fixed w-full z-[9999]">
-      <header className="bg-gradient-to-r from-gray-900 to-gray-800 border-b border-gray-700 px-4 md:px-8 py-4 sticky top-0 z-50">
+    <div className="fixed w-[100vw] top-0 z-[9999]">
+      <header className="bg-gradient-to-r from-gray-900 to-gray-800 border-b border-gray-700 px-8 py-4 sticky top-0 z-50">
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-4">
-            <h1 className="text-xl md:text-3xl font-bold text-white">Driver Dashboard</h1>
+            <div className="flex items-center gap-2">
+              <span className="text-3xl">📦</span>
+              <h1 className="text-3xl font-bold text-white">Sparrow</h1>
+            </div>
           </div>
-          <div className="flex items-center gap-4">
+          
+          <div className="flex items-center gap-6">
+            {/* Quick Actions */}
+            <div className="hidden md:flex items-center gap-3">
+              <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors">
+                + New Shipment
+              </button>
+            </div>
+
             {/* Notifications */}
             <div className="relative" ref={notificationsRef}>
               <div 
@@ -88,9 +84,11 @@ const DriverNavigation = () => {
                 onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
               >
                 <span className="text-lg">🔔</span>
-                <div className="absolute -top-1 -right-1 bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">
-                  {notifications.length}
-                </div>
+                {notifications.length > 0 && (
+                  <div className="absolute -top-1 -right-1 bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">
+                    {notifications.length}
+                  </div>
+                )}
               </div>
               
               {isNotificationsOpen && (
@@ -99,12 +97,16 @@ const DriverNavigation = () => {
                     <h3 className="text-white font-semibold">Notifications</h3>
                   </div>
                   <div className="max-h-60 overflow-y-auto">
-                    {notifications.map(notification => (
-                      <div key={notification.id} className="px-4 py-3 hover:bg-gray-700 cursor-pointer border-b border-gray-700 last:border-b-0">
-                        <p className="text-white text-sm">{notification.text}</p>
-                        <p className="text-gray-400 text-xs mt-1">{notification.time}</p>
-                      </div>
-                    ))}
+                    {notifications.length > 0 ? (
+                      notifications.map(notification => (
+                        <div key={notification.id} className="px-4 py-3 hover:bg-gray-700 cursor-pointer border-b border-gray-700 last:border-b-0">
+                          <p className="text-white text-sm">{notification.text}</p>
+                          <p className="text-gray-400 text-xs mt-1">{notification.time}</p>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="px-4 py-3 text-gray-400 text-sm">No new notifications</div>
+                    )}
                   </div>
                   <div className="px-4 py-2 border-t border-gray-700">
                     <button className="text-blue-400 text-sm hover:text-blue-300 w-full text-center">
@@ -118,40 +120,33 @@ const DriverNavigation = () => {
             {/* User Profile */}
             <div className="relative" ref={dropdownRef}>
               <div 
-                className="flex items-center gap-2 cursor-pointer"
+                className="flex items-center gap-2 cursor-pointer hover:bg-gray-800 rounded-lg px-3 py-2 transition-colors"
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
               >
                 <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold">
-                  {user?.name?.charAt(0) || "U"}
+                  {user.firstName?.charAt(0) || 'U'}
                 </div>
-                <span className="text-white font-medium hidden md:inline">{user?.name || "User"}</span>
-                <svg 
-                  className={`w-4 h-4 text-white transition-transform ${isDropdownOpen ? "rotate-180" : ""}`} 
-                  fill="none" 
-                  stroke="currentColor" 
-                  viewBox="0 0 24 24" 
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
+                <div className="hidden md:block">
+                  <span className="text-white font-medium">{user.firstName} {user.lastName}</span>
+                  <p className="text-gray-400 text-xs">{user.email}</p>
+                </div>
+                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
               </div>
-              
+
               {isDropdownOpen && (
-                <div className="absolute right-0 mt-2 w-48 bg-gray-800 border border-gray-700 rounded-lg shadow-lg py-1 z-50">
-                  <div className="px-4 py-2 border-b border-gray-700">
-                    <p className="text-white text-sm font-medium">{user?.name}</p>
-                    <p className="text-gray-400 text-xs truncate">Driver Account</p>
-                  </div>
-                  <button className="w-full text-left px-4 py-2 text-sm text-white hover:bg-gray-700">
+                <div className="absolute right-0 mt-2 w-48 bg-gray-800 border border-gray-700 rounded-lg shadow-lg py-2 z-50">
+                  <button className="w-full px-4 py-2 text-left text-white hover:bg-gray-700 transition-colors">
                     Profile Settings
                   </button>
-                  <button className="w-full text-left px-4 py-2 text-sm text-white hover:bg-gray-700">
-                    Help & Support
+                  <button className="w-full px-4 py-2 text-left text-white hover:bg-gray-700 transition-colors">
+                    Billing & Payment
                   </button>
-                  <div className="border-t border-gray-700"></div>
-                  <button
+                  <div className="border-t border-gray-700 my-2"></div>
+                  <button 
                     onClick={handleLogout}
-                    className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-gray-700 hover:text-red-300"
+                    className="w-full px-4 py-2 text-left text-red-400 hover:bg-gray-700 transition-colors"
                   >
                     Logout
                   </button>
