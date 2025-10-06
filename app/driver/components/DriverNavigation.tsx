@@ -70,12 +70,7 @@ const DriverNavigation = ({ user }: { user?: UserResponse }) => {
           </div>
           
           <div className="flex items-center gap-6">
-            {/* Quick Actions */}
-            <div className="hidden md:flex items-center gap-3">
-              <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors">
-                + New Shipment
-              </button>
-            </div>
+           
 
             {/* Notifications */}
             <div className="relative" ref={notificationsRef}>

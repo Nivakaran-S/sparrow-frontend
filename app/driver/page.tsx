@@ -97,7 +97,7 @@ export default function DriverDashboard() {
         <DriverSidebar activeTab={activeTab} setActiveTab={setActiveTab} />
 
         {/* Main Content */}
-        <main className="p-6 flex-1 ml-[14vw] mt-[10vh] bg-black overflow-y-auto">
+        <main className="p-6 flex-1 ml-[14vw] mt-[12vh] bg-[#1D1D1D] overflow-y-auto">
           {activeTab === "overview" && <DriverOverview isOnline={isOnline} />}
           {activeTab === "routes" && <MyRoutes />}
           {activeTab === "current" && <CurrentDeliveries />}

@@ -59,17 +59,17 @@ const AdminOverview = () => {
       });
       
       // Fetch all parcels
-      const parcelsRes = await fetch(`${API_BASE_URL}/api/parcels`, {
+      const parcelsRes = await fetch(`${API_BASE_URL}/api/parcels/api/parcels`, {
         credentials: 'include',
       });
       
       // Fetch active warehouses
-      const warehousesRes = await fetch(`${API_BASE_URL}/api/warehouses/active`, {
+      const warehousesRes = await fetch(`${API_BASE_URL}/api/warehouses/warehouses/active`, {
         credentials: 'include',
       });
       
       // Fetch pending consolidation requests
-      const requestsRes = await fetch(`${API_BASE_URL}/api/consolidations/api/requests/pending-count`, {
+      const requestsRes = await fetch(`${API_BASE_URL}/api/consolidations/api/consolidations`, {
         credentials: 'include',
       });
 

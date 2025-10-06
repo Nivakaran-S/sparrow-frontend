@@ -38,7 +38,7 @@ const KPIMonitoring = () => {
       setError(null);
       
       // Fetch all parcels
-      const parcelsRes = await fetch(`${API_BASE_URL}/api/parcels`, {
+      const parcelsRes = await fetch(`${API_BASE_URL}/api/parcels/api/parcels`, {
         credentials: 'include',
       });
       
@@ -219,12 +219,12 @@ const KPIMonitoring = () => {
         
         <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6 text-center transition-all hover:-translate-y-1 hover:border-blue-500 hover:shadow-lg hover:shadow-blue-500/15">
           <h3 className="text-blue-400 text-lg font-semibold mb-4">Cost per Delivery</h3>
-          <div className="text-white text-4xl font-bold mb-2">${kpiData.costPerDelivery.toFixed(2)}</div>
+          <div className="text-white text-4xl font-bold mb-2">Rs. {kpiData.costPerDelivery.toFixed(2)}</div>
           <div className="flex items-center justify-center gap-1 text-sm">
             <span className="text-gray-400">→</span>
             <p className="text-gray-400">Stable</p>
           </div>
-          <p className="text-gray-400 text-xs mt-4">Target: $11.00</p>
+          <p className="text-gray-400 text-xs mt-4">Target: Rs. 11.00</p>
         </div>
       </div>
 

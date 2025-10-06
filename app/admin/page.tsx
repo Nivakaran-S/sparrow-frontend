@@ -97,7 +97,7 @@ export default function AdminDashboard() {
         <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
 
         {/* Main Content */}
-        <main className="flex-1 p-8 ml-[18vw] mt-[10vh] overflow-y-auto bg-[#1D1D1D]">
+        <main className="flex-1 p-8 ml-[18vw] min-h-[90vh] mt-[10vh] overflow-y-auto bg-[#1D1D1D]">
           {activeTab === 'overview' && <AdminOverview />}
           {activeTab === 'users' && <UserManagement />}
           {activeTab === 'roles' && <RoleManagement />}

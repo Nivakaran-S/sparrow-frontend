@@ -11,7 +11,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
     return(
         <div className="">
             <nav className="w-64 fixed h-[93vh] z-[99] top-[9vh] bg-gradient-to-b from-gray-900 to-gray-950 border-r border-gray-700 p-0 overflow-y-auto">
-            <div className="pt-5">
+            <div className="pt-[40px]">
                 <div className="px-6 mb-4">
                 <h3 className="text-gray-400 text-sm font-semibold uppercase tracking-wider mb-2">Admin Panel</h3>
                 <div className="space-y-1">
