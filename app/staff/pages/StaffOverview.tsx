@@ -37,17 +37,17 @@ export default function StaffOverview({ userId }: { userId?: string }) {
     setIsLoading(true);
     try {
       // Fetch parcels
-      const parcelsRes = await fetch(`${API_BASE_URL}/api/parcels`, {
+      const parcelsRes = await fetch(`${API_BASE_URL}/api/parcels/api/parcels`, {
         credentials: 'include'
       });
       
       // Fetch warehouses
-      const warehousesRes = await fetch(`${API_BASE_URL}/api/warehouses`, {
+      const warehousesRes = await fetch(`${API_BASE_URL}/api/warehouses/warehouses`, {
         credentials: 'include'
       });
       
       // Fetch consolidations
-      const consolidationsRes = await fetch(`${API_BASE_URL}/api/consolidations`, {
+      const consolidationsRes = await fetch(`${API_BASE_URL}/api/consolidations/api/consolidations`, {
         credentials: 'include'
       });
 
@@ -68,7 +68,7 @@ export default function StaffOverview({ userId }: { userId?: string }) {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         
-        const processedToday = parcels.filter((p: any) => {
+        const processedToday = parcels?.filter((p: any) => {
           const createdDate = new Date(p.createdTimeStamp);
           return createdDate >= today && 
             (p.status === 'consolidated' || p.status === 'in_transit');

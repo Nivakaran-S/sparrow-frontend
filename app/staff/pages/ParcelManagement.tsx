@@ -145,7 +145,7 @@ export default function ParcelManagement({ userId }: { userId?: string }) {
           newParcel.dimensions || { length: 0, width: 0, height: 0, unit: "cm" },
       };
 
-      const response = await fetch(`${API_BASE_URL}/api/parcels`, {
+      const response = await fetch(`${API_BASE_URL}/api/parcels/api/parcels`, {
         method: "POST",
         credentials: "include",
         headers: {
@@ -180,7 +180,7 @@ export default function ParcelManagement({ userId }: { userId?: string }) {
   const handleStatusUpdate = async (id: string, status: Parcel["status"]) => {
     try {
       const response = await fetch(
-        `${API_BASE_URL}/api/parcels/${id}/status`,
+        `${API_BASE_URL}/api/parcels/api/parcels/${id}/status`,
         {
           method: "PATCH",
           credentials: "include",
@@ -261,9 +261,9 @@ export default function ParcelManagement({ userId }: { userId?: string }) {
 
       {/* Add Form Modal */}
       {showAddForm && (
-        <div className="fixed inset-0 flex items-center justify-center z-50">
+        <div className="fixed inset-0 flex h-[100vh] items-center justify-center z-[9999]">
           <div
-            className="bg-black h-full opacity-70 w-full absolute"
+            className="bg-black h-[100vh] opacity-70 w-full absolute"
             onClick={() => setShowAddForm(false)}
           ></div>
           <div className="bg-gradient-to-br absolute from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6 w-full max-w-2xl z-10 max-h-[90vh] overflow-y-auto">
@@ -271,7 +271,7 @@ export default function ParcelManagement({ userId }: { userId?: string }) {
               Add New Parcel
             </h3>
 
-            <form onSubmit={handleAddParcel} className="space-y-4">
+            <form onSubmit={handleAddParcel} className="space-y-4  ">
               <input
                 type="text"
                 name="trackingNumber"

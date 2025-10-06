@@ -45,17 +45,17 @@ export default function PerformanceReports({ userId }: { userId?: string }) {
       startDate.setDate(startDate.getDate() - days);
 
       // Fetch parcels
-      const parcelsRes = await fetch(`${API_BASE_URL}/api/parcels`, {
+      const parcelsRes = await fetch(`${API_BASE_URL}/api/parcels/api/parcels`, {
         credentials: 'include'
       });
 
       // Fetch consolidations
-      const consolidationsRes = await fetch(`${API_BASE_URL}/api/consolidations`, {
+      const consolidationsRes = await fetch(`${API_BASE_URL}/api/consolidations/api/consoliations`, {
         credentials: 'include'
       });
 
       // Fetch warehouses
-      const warehousesRes = await fetch(`${API_BASE_URL}/api/warehouses`, {
+      const warehousesRes = await fetch(`${API_BASE_URL}/api/warehouses/warehouses`, {
         credentials: 'include'
       });
 

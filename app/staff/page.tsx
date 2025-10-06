@@ -98,8 +98,8 @@ export default function StaffDashboard() {
           {activeTab === "parcels" && <ParcelManagement userId={user?.id} />}
           {activeTab === "warehouse" && <WarehouseManagement userId={user?.id} />}
           {activeTab === "consolidation" && <ParcelConsolidation userId={user?.id} />}
-          {activeTab === "routes" && <RoutePlanning userId={user?.id} />}
-          {activeTab === "tracking" && <LiveTracking userId={user?.id} />}
+          {activeTab === "routes" && <RoutePlanning  />}
+          {activeTab === "tracking" && <LiveTracking />}
           {activeTab === "reports" && <PerformanceReports userId={user?.id} />}
         </main>
       </div>

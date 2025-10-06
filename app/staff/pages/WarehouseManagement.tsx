@@ -137,7 +137,7 @@ export default function WarehouseManagement({ userId }: { userId?: string }) {
 
     try {
       // First create the address
-      const addressResponse = await fetch(`${API_BASE_URL}/warehouses/addresses`, {
+      const addressResponse = await fetch(`${API_BASE_URL}/addresses`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -311,7 +311,7 @@ export default function WarehouseManagement({ userId }: { userId?: string }) {
       {/* Register Warehouse Modal */}
       {showRegisterForm && (
         <div className="fixed inset-0 flex left-[10vw] top-[15vh] items-center justify-center z-50 px-4">
-          <div onClick={() => setShowRegisterForm(false)} className="bg-black h-[100%] w-[100%] opacity-[80%]"></div>
+          <div onClick={() => setShowRegisterForm(false)} className="bg-black h-[90vh] w-[100%] opacity-[80%]"></div>
           <div className="bg-gradient-to-br from-gray-800 to-gray-900 absolute border border-gray-700 rounded-xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
             <h3 className="text-white text-xl font-semibold mb-6">Register New Warehouse</h3>
             <div className="grid grid-cols-2 gap-4">
