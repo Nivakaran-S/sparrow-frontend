@@ -10,7 +10,7 @@ const StaffSidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
   return (
     <div>
       <nav className="w-64 fixed h-[93vh] z-[99] top-[9vh] bg-gradient-to-b from-gray-900 to-gray-950 border-r border-gray-700 p-0 overflow-y-auto">
-        <div className="pt-6">
+        <div className="pt-[40px]">
           {/* Operations Section */}
           <div className="px-6 mb-3">
             <h3 className="text-gray-400 text-sm font-semibold uppercase tracking-wider mb-3">
