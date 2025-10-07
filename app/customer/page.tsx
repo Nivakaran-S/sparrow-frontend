@@ -11,6 +11,7 @@ import TrackShipments from "./pages/TrackShipments";
 import NewShipment from "./pages/NewShipment";
 import HelpSupport from "./pages/HelpSupport";
 import OrderHistory from "./pages/OrderHistory";
+import SwiftScreen from "./pages/SwiftScreen";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api-gateway-nine-orpin.vercel.app";
 
@@ -98,6 +99,7 @@ export default function CustomerDashboard() {
           {activeTab === 'tracking' && <TrackShipments />}
           {activeTab === 'newShipment' && <NewShipment />}
           {activeTab === 'support' && <HelpSupport />}
+          {activeTab === 'swift' && <SwiftScreen />}
           {activeTab === 'history' && <OrderHistory />}
           {activeTab === 'addresses' && (
             <div className="text-white">
