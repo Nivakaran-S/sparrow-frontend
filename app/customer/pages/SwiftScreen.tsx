@@ -1,310 +1,363 @@
-"use client";
-import { useState, useEffect, useRef } from "react";
-import { motion } from "framer-motion";
-import { Menu, PlusCircle, Trash2 } from "lucide-react";
+'use client';
+import React, { useEffect, useRef, useState } from 'react';
+import axios from 'axios';
+import { v4 as uuidv4 } from 'uuid';
+import Image from 'next/image';
+import Send from '../../images/send.png';
 
 type Message = {
-  sender: "user" | "swift";
+  type: 'sender' | 'receiver';
   content: string;
+  timestamp: number;
 };
 
 type Session = {
-  id: number;
-  name: string;
+  id: string;
+  title: string;
+  thread_id: string | null;
   messages: Message[];
 };
 
-const LOCAL_STORAGE_KEY = "swift_sessions_v1";
-const ACTIVE_SESSION_KEY = "swift_active_session";
+const STORAGE_KEY = 'swift_sessions_v1';
+const API_URL = 'https://nivakaran-sparrowagenticai.hf.space/chat';
 
-const SwiftScreen = () => {
+export default function SwiftScreen() {
   const [sessions, setSessions] = useState<Session[]>([]);
-  const [activeSession, setActiveSession] = useState<number | null>(null);
-  const [input, setInput] = useState("");
-  const [isTyping, setIsTyping] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const chatEndRef = useRef<HTMLDivElement>(null);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [message, setMessage] = useState('');
+  const [typing, setTyping] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
 
-  const faqs = [
-    {
-      question: "How do I track my parcel?",
-      answer:
-        "Go to 'Track Shipment' and enter your tracking number. You'll see real-time updates on your parcel's location and status.",
-    },
-    {
-      question: "How do I create a new shipment?",
-      answer:
-        "Navigate to 'Create Shipment', fill in the sender and receiver details, and submit. You'll receive a tracking number immediately.",
-    },
-    {
-      question: "What payment methods do you accept?",
-      answer:
-        "We accept Visa, MasterCard, American Express, PayPal, and bank transfers for enterprise customers.",
-    },
-  ];
+  // Refs to prevent stale closures
+  const sessionsRef = useRef<Session[]>([]);
+  const activeSessionIdRef = useRef<string | null>(null);
 
-  // Load sessions from localStorage on mount
+  // Keep refs in sync
   useEffect(() => {
-    const storedSessions = localStorage.getItem(LOCAL_STORAGE_KEY);
-    const storedActive = localStorage.getItem(ACTIVE_SESSION_KEY);
-
-    if (storedSessions) {
-      const parsed = JSON.parse(storedSessions);
-      setSessions(parsed);
-      if (storedActive) setActiveSession(Number(storedActive));
-      else setActiveSession(parsed[0]?.id || null);
-    } else {
-      const defaultSession: Session = {
-        id: Date.now(),
-        name: "Default Session",
-        messages: [
-          {
-            sender: "swift",
-            content:
-              "👋 Hi there! I'm Swift, your virtual assistant. How can I help you today?",
-          },
-        ],
-      };
-      setSessions([defaultSession]);
-      setActiveSession(defaultSession.id);
-    }
-  }, []);
-
-  // Save sessions and active session to localStorage whenever they change
+    sessionsRef.current = sessions;
+  }, [sessions]);
   useEffect(() => {
-    if (sessions.length > 0) {
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(sessions));
-      if (activeSession) {
-        localStorage.setItem(ACTIVE_SESSION_KEY, activeSession.toString());
+    activeSessionIdRef.current = activeSessionId;
+  }, [activeSessionId]);
+
+  // Load sessions from localStorage
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const parsed: Session[] = JSON.parse(raw);
+        if (parsed.length > 0) {
+          setSessions(parsed);
+          setActiveSessionId(parsed[0].id);
+          return;
+        }
       }
+    } catch (err) {
+      console.error('Failed to parse sessions from localStorage', err);
     }
-  }, [sessions, activeSession]);
 
-  // Auto-scroll chat
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [sessions, activeSession, isTyping]);
-
-  const activeMessages =
-    sessions.find((s) => s.id === activeSession)?.messages || [];
-
-  const handleSend = () => {
-    if (!input.trim() || !activeSession) return;
-
-    setSessions((prev) =>
-      prev.map((s) =>
-        s.id === activeSession
-          ? { ...s, messages: [...s.messages, { sender: "user", content: input }] }
-          : s
-      )
-    );
-
-    const userInput = input;
-    setInput("");
-    setIsTyping(true);
-
-    setTimeout(() => {
-      const matchedFAQ = faqs.find((f) =>
-        f.question.toLowerCase().includes(userInput.toLowerCase())
-      );
-      const swiftMessage = {
-        sender: "swift" as const,
-        content: matchedFAQ
-          ? matchedFAQ.answer
-          : "I'm not sure about that yet 🤔, but you can contact support at support@sparrow.com.",
-      };
-
-      setSessions((prev) =>
-        prev.map((s) =>
-          s.id === activeSession
-            ? { ...s, messages: [...s.messages, swiftMessage] }
-            : s
-        )
-      );
-      setIsTyping(false);
-    }, 1000);
-  };
-
-  const handleNewSession = () => {
-    const newId = Date.now();
-    const newSession: Session = {
-      id: newId,
-      name: `Session ${sessions.length + 1}`,
+    // Default session
+    const defaultSession: Session = {
+      id: uuidv4(),
+      title: 'Default Session',
+      thread_id: null,
       messages: [
         {
-          sender: "swift",
-          content: "🧠 New chat started! How can I help you?",
+          type: 'receiver',
+          content: "👋 Hi there! I'm Swift, your virtual assistant. How can I help you today?",
+          timestamp: Date.now(),
         },
       ],
     };
-    setSessions((prev) => [...prev, newSession]);
-    setActiveSession(newId);
+    setSessions([defaultSession]);
+    setActiveSessionId(defaultSession.id);
+  }, []);
+
+  // Save sessions
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
+    } catch (err) {
+      console.error('Failed to save sessions to localStorage', err);
+    }
+  }, [sessions]);
+
+  // Auto scroll
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [sessions, activeSessionId, typing]);
+
+  const activeSession = sessions.find((s) => s.id === activeSessionId) ?? null;
+
+  // API call helper
+  const sendMessageAPI = async (txt: string, thread_id: string | null) => {
+    try {
+      const payload: any = { message: txt };
+      if (thread_id) payload.thread_id = thread_id;
+
+      console.log('Sending to API:', payload);
+      const resp = await axios.post(API_URL, payload, {
+        headers: { 'Content-Type': 'application/json' },
+        timeout: 100000,
+      });
+
+      console.log('API response raw:', resp.data);
+      const data = resp.data;
+
+      if (data && data.success) {
+        return {
+          success: true,
+          response: data.response,
+          thread_id: data.thread_id ?? null,
+        };
+      }
+
+      return { success: false, error: data?.error ?? 'Unknown error from API' };
+    } catch (err: any) {
+      console.error('sendMessageAPI error:', err);
+      const errMsg =
+        err?.response?.data?.error ||
+        err?.response?.statusText ||
+        err?.message ||
+        'Network / API error';
+      return { success: false, error: errMsg };
+    }
   };
 
-  const handleSwitchSession = (id: number) => {
-    setActiveSession(id);
+  // Send message
+  const handleSendMessage = async () => {
+    const sid = activeSessionIdRef.current;
+    if (!sid) return;
+    if (!message.trim()) return;
+    if (isSending) return;
+
+    const currentSession = sessionsRef.current.find((s) => s.id === sid);
+    const threadId = currentSession?.thread_id ?? null;
+
+    const text = message.trim();
+    const senderMsg: Message = { type: 'sender', content: text, timestamp: Date.now() };
+
+    // Add sender message
+    setSessions((prev) =>
+      prev.map((s) => (s.id === sid ? { ...s, messages: [...s.messages, senderMsg] } : s))
+    );
+
+    setMessage('');
+    setIsSending(true);
+    setTyping(true);
+
+    const result = await sendMessageAPI(text, threadId);
+
+    setIsSending(false);
+    setTyping(false);
+
+    if (result.success) {
+      const receiverMsg: Message = {
+        type: 'receiver',
+        content: result.response ?? 'No response received',
+        timestamp: Date.now(),
+      };
+
+      setSessions((prev) =>
+        prev.map((s) => {
+          if (s.id !== sid) return s;
+
+          // ✅ Only set thread_id if none existed before
+          const updatedThreadId = s.thread_id ?? result.thread_id ?? null;
+
+          return {
+            ...s,
+            messages: [...s.messages, receiverMsg],
+            thread_id: updatedThreadId,
+          };
+        })
+      );
+    } else {
+      const errMsg: Message = {
+        type: 'receiver',
+        content: `Error: ${result.error ?? 'Unknown error'}`,
+        timestamp: Date.now(),
+      };
+      setSessions((prev) =>
+        prev.map((s) =>
+          s.id === sid ? { ...s, messages: [...s.messages, errMsg] } : s
+        )
+      );
+    }
   };
 
-  const handleDeleteSession = (id: number) => {
-    if (sessions.length === 1) {
-      alert("You must keep at least one session.");
+  // Create session
+  const createNewSession = () => {
+    const newSession: Session = {
+      id: uuidv4(),
+      title: `Chat ${sessions.length + 1}`,
+      thread_id: null,
+      messages: [
+        {
+          type: 'receiver',
+          content: '🧠 New chat started! How can I help you?',
+          timestamp: Date.now(),
+        },
+      ],
+    };
+    setSessions((prev) => [newSession, ...prev]);
+    setActiveSessionId(newSession.id);
+  };
+
+  // Delete session
+  const deleteSession = (id: string) => {
+    if (sessionsRef.current.length <= 1) {
+      alert('You must keep at least one session.');
       return;
     }
 
-    const filtered = sessions.filter((s) => s.id !== id);
-    setSessions(filtered);
+    setSessions((prev) => {
+      const filtered = prev.filter((s) => s.id !== id);
+      if (activeSessionIdRef.current === id) {
+        const next = filtered[0];
+        setActiveSessionId(next?.id ?? null);
+      }
+      return filtered;
+    });
+  };
 
-    if (activeSession === id) {
-      setActiveSession(filtered[0].id);
+  // Enter sends
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
     }
   };
 
+  // Parse **bold**
+  const parseMessageToJSX = (text: string) => {
+    const parts = text.split(/(\*\*.*?\*\*)/g);
+    return parts.map((part, idx) =>
+      part.startsWith('**') && part.endsWith('**') ? (
+        <strong key={idx}>{part.slice(2, -2)}</strong>
+      ) : (
+        <span key={idx}>{part}</span>
+      )
+    );
+  };
+
   return (
-    <div className="flex h-[80vh] w-full bg-[#0f172a] text-white border border-gray-700 shadow-xl overflow-hidden">
+    <div className="flex h-[81vh] text-white overflow-hidden">
       {/* Sidebar */}
-      <motion.aside
-        animate={{ width: sidebarOpen ? 260 : 70 }}
-        transition={{ duration: 0.3 }}
-        className="bg-[#1e293b] border-r border-gray-700 flex flex-col justify-between"
-      >
-        <div className="flex-1 p-3 overflow-y-auto">
+      <div className="w-[300px] bg-[#101010] border-r border-gray-700 p-4 flex flex-col">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-lg font-semibold">Sessions</h2>
           <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-2 mb-4 hover:bg-gray-700 rounded-lg transition"
+            onClick={createNewSession}
+            className="text-sm bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded"
           >
-            <Menu className="w-5 h-5 text-white" />
-          </button>
-
-          {sidebarOpen ? (
-            <div>
-              <h2 className="text-lg font-bold mb-3">Sessions</h2>
-              <div className="space-y-2">
-                {sessions.map((s) => (
-                  <div
-                    key={s.id}
-                    className={`group flex items-center justify-between px-3 py-2 rounded-lg ${
-                      s.id === activeSession
-                        ? "bg-blue-600 text-white"
-                        : "bg-gray-800 text-gray-300 hover:bg-gray-700"
-                    }`}
-                  >
-                    <button
-                      onClick={() => handleSwitchSession(s.id)}
-                      className="flex-1 text-left truncate"
-                    >
-                      {s.name}
-                    </button>
-
-                    {sessions.length > 1 && (
-                      <button
-                        onClick={() => handleDeleteSession(s.id)}
-                        className="opacity-0 group-hover:opacity-100 transition"
-                      >
-                        <Trash2 className="w-4 h-4 text-gray-300 hover:text-red-400" />
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center space-y-3">
-              {sessions.map((s) => (
-                <div
-                  key={s.id}
-                  title={s.name}
-                  onClick={() => handleSwitchSession(s.id)}
-                  className={`w-10 h-10 flex items-center justify-center rounded-lg cursor-pointer ${
-                    s.id === activeSession
-                      ? "bg-blue-600 text-white"
-                      : "bg-gray-800 text-gray-300 hover:bg-gray-700"
-                  }`}
-                >
-                  M
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="p-4 border-t border-gray-700">
-          <button
-            onClick={handleNewSession}
-            className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 w-full px-3 py-2 rounded-lg font-medium"
-          >
-            <PlusCircle className="w-4 h-4" />
-            {sidebarOpen && "New Chat"}
+            + New
           </button>
         </div>
-      </motion.aside>
 
-      {/* Chat Area */}
-      <div className="flex flex-col flex-1">
-        {/* Header */}
-        <div className="bg-[#1e293b] border-b border-gray-700 px-6 py-4 flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-bold">Ask Swift</h2>
-            <p className="text-gray-400 text-sm">
-              Session: {sessions.find((s) => s.id === activeSession)?.name}
-            </p>
-          </div>
-          <div className="text-2xl">⚡</div>
-        </div>
-
-        {/* Chat Body */}
-        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 scrollbar-thin scrollbar-thumb-gray-700">
-          {activeMessages.map((msg, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.2 }}
-              className={`flex ${
-                msg.sender === "user" ? "justify-end" : "justify-start"
+        <div className="flex-1 overflow-y-auto space-y-2">
+          {sessions.map((s) => (
+            <div
+              key={s.id}
+              onClick={() => setActiveSessionId(s.id)}
+              className={`p-2 rounded cursor-pointer flex justify-between items-center ${
+                activeSessionId === s.id ? 'bg-gray-600' : 'hover:bg-gray-700'
               }`}
             >
-              <div
-                className={`max-w-[75%] px-4 py-2 rounded-2xl text-sm ${
-                  msg.sender === "user"
-                    ? "bg-blue-600 text-white rounded-br-none"
-                    : "bg-gray-800 text-gray-100 rounded-bl-none"
-                }`}
-              >
-                {msg.content}
+              <div className="truncate">{s.title}</div>
+              <div className="flex items-center gap-2">
+                {s.thread_id && (
+                  <span className="text-xs px-2 py-1 bg-gray-800 rounded text-gray-300">
+                    tid
+                  </span>
+                )}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    deleteSession(s.id);
+                  }}
+                  className="text-red-400 hover:text-red-500 ml-2"
+                >
+                  ✕
+                </button>
               </div>
-            </motion.div>
+            </div>
           ))}
+        </div>
+      </div>
 
-          {isTyping && (
-            <div className="flex justify-start">
-              <div className="bg-gray-800 px-4 py-2 rounded-2xl text-gray-400 text-sm animate-pulse">
-                Swift is typing...
+      {/* Chat Area */}
+      <div className="flex-1 flex flex-col">
+        <div className="bg-[#111] border-b border-gray-700 p-4 flex justify-between items-center">
+          <h2 className="text-lg font-semibold">{activeSession?.title ?? 'Swift Chat'}</h2>
+          <div className="text-sm text-gray-400">
+            {activeSession?.thread_id ? `thread: ${activeSession.thread_id}` : ''}
+          </div>
+        </div>
+
+        <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 bg-[#101010] custom-scrollbar">
+          {activeSession && activeSession.messages.length > 0 ? (
+            activeSession.messages
+              .slice()
+              .sort((a, b) => a.timestamp - b.timestamp)
+              .map((msg, i) => (
+                <div
+                  key={i}
+                  className={`flex ${
+                    msg.type === 'sender' ? 'justify-end' : 'justify-start'
+                  } mb-3`}
+                >
+                  <div
+                    className={`max-w-[75%] rounded-lg px-3 py-2 text-sm ${
+                      msg.type === 'sender'
+                        ? 'bg-gray-500 text-black'
+                        : 'bg-white text-black'
+                    }`}
+                  >
+                    {parseMessageToJSX(msg.content)}
+                  </div>
+                </div>
+              ))
+          ) : (
+            <div className="flex h-full items-center justify-center text-gray-400 text-sm">
+              Start a conversation...
+            </div>
+          )}
+
+          {typing && (
+            <div className="flex justify-start mb-2">
+              <div className="bg-white text-black px-3 py-2 rounded-lg text-sm">
+                Typing...
               </div>
             </div>
           )}
-          <div ref={chatEndRef} />
         </div>
 
-        {/* Input */}
-        <div className="p-4 bg-[#1e293b] border-t border-gray-700 flex items-center gap-3">
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSend()}
-            placeholder="Ask me anything about shipping, tracking, or payments..."
-            className="flex-1 bg-gray-800 text-gray-100 px-4 py-2 rounded-lg focus:outline-none border border-gray-700 focus:border-blue-500"
+        <div className="p-4 bg-[#000] border-t border-gray-700 relative">
+          <textarea
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Ask Swift..."
+            className="w-full bg-[#111] text-white p-3 rounded-lg resize-none focus:outline-none h-[80px]"
+            disabled={isSending}
           />
-          <button
-            onClick={handleSend}
-            className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg font-medium transition"
+          <div
+            onClick={handleSendMessage}
+            className={`absolute right-6 bottom-6 cursor-pointer rounded-full p-3 ${
+              isSending
+                ? 'opacity-60 pointer-events-none'
+                : 'bg-[#373435] hover:bg-[#555]'
+            }`}
+            title={isSending ? 'Sending...' : 'Send'}
           >
-            Send
-          </button>
+            <Image alt="send" src={Send} height={25} />
+          </div>
         </div>
       </div>
     </div>
   );
-};
-
-export default SwiftScreen;
+}
