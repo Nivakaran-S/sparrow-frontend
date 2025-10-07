@@ -4,7 +4,7 @@ import Image from "next/image";
 import Send from '../images/send.png';
 import { v4 as uuidv4 } from 'uuid';
 import './Max.css';
-
+  import axios from "axios";
 
 type Message = {
   type: 'sender' | 'receiver';
@@ -22,6 +22,47 @@ const Swift = () => {
 
   const [typing, setTyping] = useState(false);
   const [threadId, setThreadId] = useState<string | null>(null);
+
+// ---- API FUNCTION ----
+const sendMessage = async (message: string) => {
+  try {
+    // Axios POST to your Hugging Face Space endpoint
+    const response = await axios.post(
+      "https://nivakaran-sparrowagenticai.hf.space/post",
+      {
+        data: [message], // Gradio expects input as an array
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+        timeout: 20000, // 20s timeout for safety
+      }
+    );
+
+    // Typical Gradio response structure: { data: ["response text"] }
+    const answer = response.data?.data?.[0] ?? "No response received";
+
+    return {
+      success: true,
+      response: answer,
+      thread_id: null,
+    };
+  } catch (error: any) {
+    console.error("Error in sendMessage:", error);
+
+    let errorMessage = "An unknown error occurred.";
+    if (error.response) {
+      errorMessage = `Server responded with status ${error.response.status}: ${error.response.statusText}`;
+    } else if (error.request) {
+      errorMessage = "No response received from the server.";
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+
+    return { success: false, error: errorMessage };
+  }
+};
 
   // Manage thread ID (persist in localStorage)
   useEffect(() => {
@@ -47,24 +88,24 @@ const Swift = () => {
     try {
       setTyping(true);
 
-      // const res = await sendMessage(msg);
+      const res = await sendMessage(msg);
 
-      // if (res.success) {
-      //   setThreadId(res.thread_id || threadId);
-      //   localStorage.setItem("threadId", res.thread_id || threadId);
+      if (res.success) {
+        setThreadId(res.thread_id || threadId);
+        localStorage.setItem("threadId", res.thread_id || threadId);
 
-      //   const answer = res.response || "No response received";
+        const answer = res.response || "No response received";
 
-      //   setMessageCollection((prevMessages) => [
-      //     ...prevMessages,
-      //     { type: "receiver", content: answer, timestamp: Date.now() }
-      //   ]);
-      // } else {
-      //   setMessageCollection((prevMessages) => [
-      //     ...prevMessages,
-      //     { type: "receiver", content: "Error: " + (res.error || "Unknown error"), timestamp: Date.now() }
-      //   ]);
-      // }
+        setMessageCollection((prevMessages) => [
+          ...prevMessages,
+          { type: "receiver", content: answer, timestamp: Date.now() }
+        ]);
+      } else {
+        setMessageCollection((prevMessages) => [
+          ...prevMessages,
+          { type: "receiver", content: "Error: " + (res.error || "Unknown error"), timestamp: Date.now() }
+        ]);
+      }
     } catch (err: any) {
       console.error("Error invoking API: ", err);
       setMessageCollection((prevMessages) => [
