@@ -7,6 +7,8 @@ type Stats = {
   totalUsers: number;
   totalParcels: number;
   activeWarehouses: number;
+  totalConsolidations: number;
+  activeDeliveries: number;
   pendingRequests: number;
   usersByRole: {
     admin: number;
@@ -17,6 +19,13 @@ type Stats = {
   parcelsByStatus: {
     created: number;
     at_warehouse: number;
+    consolidated: number;
+    in_transit: number;
+    delivered: number;
+  };
+  consolidationsByStatus: {
+    pending: number;
+    consolidated: number;
     in_transit: number;
     delivered: number;
   };
@@ -27,6 +36,8 @@ const AdminOverview = () => {
     totalUsers: 0,
     totalParcels: 0,
     activeWarehouses: 0,
+    totalConsolidations: 0,
+    activeDeliveries: 0,
     pendingRequests: 0,
     usersByRole: {
       admin: 0,
@@ -37,6 +48,13 @@ const AdminOverview = () => {
     parcelsByStatus: {
       created: 0,
       at_warehouse: 0,
+      consolidated: 0,
+      in_transit: 0,
+      delivered: 0
+    },
+    consolidationsByStatus: {
+      pending: 0,
+      consolidated: 0,
       in_transit: 0,
       delivered: 0
     }
@@ -53,29 +71,28 @@ const AdminOverview = () => {
       setLoading(true);
       setError(null);
       
-      // Fetch user stats
-      const userStatsRes = await fetch(`${API_BASE_URL}/api/users/users/stats`, {
-        credentials: 'include',
-      });
-      
-      // Fetch all parcels
-      const parcelsRes = await fetch(`${API_BASE_URL}/api/parcels/api/parcels`, {
-        credentials: 'include',
-      });
-      
-      // Fetch active warehouses
-      const warehousesRes = await fetch(`${API_BASE_URL}/api/warehouses/warehouses/active`, {
-        credentials: 'include',
-      });
-      
-      // Fetch pending consolidation requests
-      const requestsRes = await fetch(`${API_BASE_URL}/api/consolidations/api/consolidations`, {
-        credentials: 'include',
-      });
+      // Fetch all data in parallel
+      const [
+        userStatsRes,
+        parcelsRes,
+        warehousesRes,
+        consolidationsRes,
+        deliveriesRes,
+        requestsRes
+      ] = await Promise.all([
+        fetch(`${API_BASE_URL}/api/users/users/stats`, { credentials: 'include' }),
+        fetch(`${API_BASE_URL}/api/parcels/api/parcels`, { credentials: 'include' }),
+        fetch(`${API_BASE_URL}/api/warehouses/warehouses/active`, { credentials: 'include' }),
+        fetch(`${API_BASE_URL}/api/consolidations/api/consolidations`, { credentials: 'include' }),
+        fetch(`${API_BASE_URL}/api/deliveries/api/deliveries/active`, { credentials: 'include' }),
+        fetch(`${API_BASE_URL}/api/consolidations/api/requests/pending-count`, { credentials: 'include' })
+      ]);
 
       let userStatsData = null;
       let parcelsData = null;
       let warehousesData = null;
+      let consolidationsData = null;
+      let deliveriesData = null;
       let requestsData = null;
 
       if (userStatsRes.ok) {
@@ -91,6 +108,14 @@ const AdminOverview = () => {
         warehousesData = await warehousesRes.json();
       }
 
+      if (consolidationsRes.ok) {
+        consolidationsData = await consolidationsRes.json();
+      }
+
+      if (deliveriesRes.ok) {
+        deliveriesData = await deliveriesRes.json();
+      }
+
       if (requestsRes.ok) {
         requestsData = await requestsRes.json();
       }
@@ -99,6 +124,7 @@ const AdminOverview = () => {
       const parcelsByStatus = {
         created: 0,
         at_warehouse: 0,
+        consolidated: 0,
         in_transit: 0,
         delivered: 0
       };
@@ -111,10 +137,28 @@ const AdminOverview = () => {
         });
       }
 
+      // Calculate consolidation statistics
+      const consolidationsByStatus = {
+        pending: 0,
+        consolidated: 0,
+        in_transit: 0,
+        delivered: 0
+      };
+
+      if (Array.isArray(consolidationsData)) {
+        consolidationsData.forEach((consolidation: any) => {
+          if (consolidationsByStatus.hasOwnProperty(consolidation.status)) {
+            consolidationsByStatus[consolidation.status as keyof typeof consolidationsByStatus]++;
+          }
+        });
+      }
+
       setStats({
         totalUsers: userStatsData?.total || 0,
         totalParcels: parcelsData?.count || 0,
         activeWarehouses: warehousesData?.count || 0,
+        totalConsolidations: Array.isArray(consolidationsData) ? consolidationsData.length : 0,
+        activeDeliveries: deliveriesData?.count || 0,
         pendingRequests: requestsData?.count || 0,
         usersByRole: {
           admin: userStatsData?.admin || 0,
@@ -122,7 +166,8 @@ const AdminOverview = () => {
           customer: userStatsData?.customer || 0,
           driver: userStatsData?.driver || 0
         },
-        parcelsByStatus
+        parcelsByStatus,
+        consolidationsByStatus
       });
     } catch (error) {
       console.error("Error fetching stats:", error);
@@ -191,6 +236,24 @@ const AdminOverview = () => {
           positive 
         />
         <StatCard 
+          title="Active Deliveries" 
+          value={stats.activeDeliveries.toString()} 
+          icon="🚚" 
+          change={stats.activeDeliveries > 0 ? "In progress" : "None active"} 
+          positive={stats.activeDeliveries > 0} 
+        />
+      </div>
+
+      {/* Secondary Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <StatCard 
+          title="Total Consolidations" 
+          value={stats.totalConsolidations.toString()} 
+          icon="📋" 
+          change={`${stats.consolidationsByStatus.pending} pending`}
+          positive={stats.consolidationsByStatus.pending === 0} 
+        />
+        <StatCard 
           title="Pending Requests" 
           value={stats.pendingRequests.toString()} 
           icon="⏳" 
@@ -225,7 +288,7 @@ const AdminOverview = () => {
       {/* Parcel Status Distribution */}
       <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6">
         <h3 className="text-white text-xl font-semibold mb-6">Parcel Status Overview</h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <div className="p-4 bg-gray-900 rounded-lg border border-gray-700">
             <div className="text-sm text-gray-400 mb-1">Created</div>
             <div className="text-2xl font-bold text-gray-400">{stats.parcelsByStatus.created}</div>
@@ -233,6 +296,10 @@ const AdminOverview = () => {
           <div className="p-4 bg-gray-900 rounded-lg border border-gray-700">
             <div className="text-sm text-gray-400 mb-1">At Warehouse</div>
             <div className="text-2xl font-bold text-blue-400">{stats.parcelsByStatus.at_warehouse}</div>
+          </div>
+          <div className="p-4 bg-gray-900 rounded-lg border border-gray-700">
+            <div className="text-sm text-gray-400 mb-1">Consolidated</div>
+            <div className="text-2xl font-bold text-purple-400">{stats.parcelsByStatus.consolidated}</div>
           </div>
           <div className="p-4 bg-gray-900 rounded-lg border border-gray-700">
             <div className="text-sm text-gray-400 mb-1">In Transit</div>
@@ -245,34 +312,26 @@ const AdminOverview = () => {
         </div>
       </div>
 
-      {/* Quick Actions */}
+      {/* Consolidation Status Distribution */}
       <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6">
-        <h3 className="text-white text-xl font-semibold mb-6">Quick Actions</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <button 
-            onClick={() => window.location.href = '/admin?tab=users'}
-            className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-6 py-3 rounded-lg font-medium transition-all hover:-translate-y-1 shadow-lg shadow-blue-600/30"
-          >
-            Manage Users
-          </button>
-          <button 
-            onClick={() => window.location.href = '/admin?tab=warehouses'}
-            className="bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200 px-6 py-3 rounded-lg font-medium transition-all hover:-translate-y-1"
-          >
-            View Warehouses
-          </button>
-          <button 
-            onClick={fetchStats}
-            className="bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200 px-6 py-3 rounded-lg font-medium transition-all hover:-translate-y-1"
-          >
-            Refresh Stats
-          </button>
-          <button 
-            onClick={() => window.location.href = '/admin?tab=settings'}
-            className="bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200 px-6 py-3 rounded-lg font-medium transition-all hover:-translate-y-1"
-          >
-            System Settings
-          </button>
+        <h3 className="text-white text-xl font-semibold mb-6">Consolidation Status Overview</h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="p-4 bg-gray-900 rounded-lg border border-gray-700">
+            <div className="text-sm text-gray-400 mb-1">Pending</div>
+            <div className="text-2xl font-bold text-yellow-400">{stats.consolidationsByStatus.pending}</div>
+          </div>
+          <div className="p-4 bg-gray-900 rounded-lg border border-gray-700">
+            <div className="text-sm text-gray-400 mb-1">Consolidated</div>
+            <div className="text-2xl font-bold text-blue-400">{stats.consolidationsByStatus.consolidated}</div>
+          </div>
+          <div className="p-4 bg-gray-900 rounded-lg border border-gray-700">
+            <div className="text-sm text-gray-400 mb-1">In Transit</div>
+            <div className="text-2xl font-bold text-purple-400">{stats.consolidationsByStatus.in_transit}</div>
+          </div>
+          <div className="p-4 bg-gray-900 rounded-lg border border-gray-700">
+            <div className="text-sm text-gray-400 mb-1">Delivered</div>
+            <div className="text-2xl font-bold text-green-400">{stats.consolidationsByStatus.delivered}</div>
+          </div>
         </div>
       </div>
     </div>

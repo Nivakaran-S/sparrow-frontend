@@ -97,18 +97,6 @@ const UserManagement = () => {
     }
   };
 
-  const handleDeleteUser = async (userId: string, userName: string) => {
-    if (!confirm(`Are you sure you want to delete user "${userName}"?`)) return;
-    
-    try {
-      // Implement delete user API call when endpoint is available
-      alert("User deletion endpoint not yet implemented in backend");
-    } catch (error) {
-      console.error("Error deleting user:", error);
-      alert("Failed to delete user");
-    }
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -206,7 +194,6 @@ const UserManagement = () => {
                 <th className="text-white px-6 py-4 text-left font-semibold text-sm">Phone</th>
                 <th className="text-white px-6 py-4 text-left font-semibold text-sm">Role</th>
                 <th className="text-white px-6 py-4 text-left font-semibold text-sm">Created</th>
-                <th className="text-white px-6 py-4 text-left font-semibold text-sm">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -228,26 +215,11 @@ const UserManagement = () => {
                   <td className="px-6 py-4 text-gray-300 text-sm">
                     {new Date(user.createdTimestamp).toLocaleDateString()}
                   </td>
-                  <td className="px-6 py-4 text-gray-300 text-sm">
-                    <div className="flex gap-2">
-                      <button className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-medium transition-colors">
-                        View
-                      </button>
-                      {user.role !== 'Admin' && (
-                        <button 
-                          onClick={() => handleDeleteUser(user._id, user.userName)}
-                          className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded text-xs font-medium transition-colors"
-                        >
-                          Delete
-                        </button>
-                      )}
-                    </div>
-                  </td>
                 </tr>
               ))}
               {filteredUsers.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-6 py-8 text-center text-gray-400">
+                  <td colSpan={6} className="px-6 py-8 text-center text-gray-400">
                     No users found matching your criteria
                   </td>
                 </tr>
