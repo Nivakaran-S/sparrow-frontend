@@ -32,7 +32,6 @@ const CustomerSidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) =>
       section: "History & Support",
       items: [
         { id: "history", label: "Order History" },
-        { id: "receipts", label: "Receipts" },
         { id: "swift", label: "Ask Swift" },
         { id: "support", label: "Help & Support" },
       ]

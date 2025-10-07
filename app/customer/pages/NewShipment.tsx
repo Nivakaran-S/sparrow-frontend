@@ -7,6 +7,7 @@ const NewShipment = () => {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [createdParcel, setCreatedParcel] = useState<any>(null);
+  const [paymentProcessing, setPaymentProcessing] = useState(false);
   
   const [shipmentData, setShipmentData] = useState({
     senderName: "",
@@ -25,7 +26,8 @@ const NewShipment = () => {
     dimensionUnit: "cm",
     description: "",
     value: "",
-    specialInstructions: ""
+    specialInstructions: "",
+    paymentMethod: "credit_card"
   });
 
   const handleInputChange = (field: string, value: string) => {
@@ -39,11 +41,26 @@ const NewShipment = () => {
     return 'TRK' + Date.now().toString().slice(-8) + Math.random().toString(36).substr(2, 4).toUpperCase();
   };
 
+  const calculateShippingCost = () => {
+    // Basic shipping cost calculation
+    const weight = parseFloat(shipmentData.weight) || 0;
+    const volume = (parseFloat(shipmentData.length) || 0) * 
+                   (parseFloat(shipmentData.width) || 0) * 
+                   (parseFloat(shipmentData.height) || 0);
+    
+    const baseCost = 10;
+    const weightCost = weight * 2;
+    const volumeCost = volume * 0.01;
+    
+    return (baseCost + weightCost + volumeCost).toFixed(2);
+  };
+
   const handleSubmit = async () => {
     setLoading(true);
     try {
+      const trackingNumber = generateTrackingNumber();
       const parcelPayload = {
-        trackingNumber: generateTrackingNumber(),
+        trackingNumber,
         weight: {
           value: parseFloat(shipmentData.weight),
           unit: shipmentData.weightUnit
@@ -81,7 +98,107 @@ const NewShipment = () => {
       if (response.ok) {
         const result = await response.json();
         setCreatedParcel(result.data);
-        alert(`Shipment created successfully! Tracking Number: ${result.data.trackingNumber}`);
+        setStep(5); // Move to payment step
+        setLoading(false);
+      } else {
+        const error = await response.json();
+        alert(`Failed to create shipment: ${error.message || 'Unknown error'}`);
+        setLoading(false);
+      }
+    } catch (error) {
+      console.error('Error creating shipment:', error);
+      alert('Error creating shipment. Please try again.');
+      setLoading(false);
+    }
+  };
+
+  const generateInvoiceNumber = () => {
+    const date = new Date();
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const random = Math.random().toString(36).substring(2, 6).toUpperCase();
+    return `INV-${year}${month}${day}-${random}`;
+  };
+
+  const handlePayment = async () => {
+    setPaymentProcessing(true);
+    try {
+      // Get user info from cookie check
+      const userResponse = await fetch(`https://api-gateway-nine-orpin.vercel.app/check-cookie`, {
+        credentials: 'include'
+      });
+      
+      if (!userResponse.ok) {
+        alert('Please login to complete payment');
+        setPaymentProcessing(false);
+        return;
+      }
+
+      const userData = await userResponse.json();
+      const shippingCost = parseFloat(calculateShippingCost());
+
+      // Create payment
+      const paymentPayload = {
+        user: userData.id,
+        parcels: [createdParcel._id],
+        amount: shippingCost,
+        paymentMethod: shipmentData.paymentMethod,
+        paymentStatus: "successful"
+      };
+
+      const paymentResponse = await fetch(`${API_BASE_URL}/api/payment`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(paymentPayload)
+      });
+
+      if (paymentResponse.ok) {
+        const paymentResult = await paymentResponse.json();
+        
+        // Create invoice after successful payment
+        const invoicePayload = {
+          invoiceNumber: generateInvoiceNumber(),
+          user: userData.id,
+          payment: paymentResult.data._id,
+          parcels: [createdParcel._id],
+          items: [
+            {
+              description: `Parcel Shipping - ${shipmentData.weight} ${shipmentData.weightUnit}`,
+              quantity: 1,
+              unitPrice: shippingCost,
+              total: shippingCost
+            }
+          ],
+          subtotal: shippingCost,
+          tax: 0,
+          serviceFee: 0,
+          discount: 0,
+          totalAmount: shippingCost,
+          issueDate: new Date().toISOString(),
+          status: "paid"
+        };
+
+        const invoiceResponse = await fetch(`${API_BASE_URL}/api/invoice`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(invoicePayload)
+        });
+
+        if (invoiceResponse.ok) {
+          const invoiceResult = await invoiceResponse.json();
+          alert(`Payment successful! Your shipment has been created.\n\nTracking Number: ${createdParcel.trackingNumber}\nPayment ID: ${paymentResult.data._id}\nInvoice Number: ${invoiceResult.data.invoiceNumber}`);
+        } else {
+          // Payment succeeded but invoice creation failed
+          console.error('Invoice creation failed, but payment was successful');
+          alert(`Payment successful! Your shipment has been created.\n\nTracking Number: ${createdParcel.trackingNumber}\nPayment ID: ${paymentResult.data._id}\n\nNote: Invoice generation pending.`);
+        }
         
         // Reset form
         setShipmentData({
@@ -101,18 +218,20 @@ const NewShipment = () => {
           dimensionUnit: "cm",
           description: "",
           value: "",
-          specialInstructions: ""
+          specialInstructions: "",
+          paymentMethod: "credit_card"
         });
+        setCreatedParcel(null);
         setStep(1);
       } else {
-        const error = await response.json();
-        alert(`Failed to create shipment: ${error.message || 'Unknown error'}`);
+        const error = await paymentResponse.json();
+        alert(`Payment failed: ${error.message || 'Unknown error'}`);
       }
     } catch (error) {
-      console.error('Error creating shipment:', error);
-      alert('Error creating shipment. Please try again.');
+      console.error('Error processing payment:', error);
+      alert('Error processing payment. Please try again.');
     } finally {
-      setLoading(false);
+      setPaymentProcessing(false);
     }
   };
 
@@ -146,27 +265,28 @@ const NewShipment = () => {
 
       {/* Progress Steps */}
       <div className="mb-8">
-        <div className="flex items-center justify-between max-w-xl">
-          {[1, 2, 3, 4].map((s) => (
+        <div className="flex items-center justify-between max-w-2xl">
+          {[1, 2, 3, 4, 5].map((s) => (
             <div key={s} className="flex items-center">
               <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold border-2 ${
                 step >= s ? 'bg-blue-600 border-blue-600 text-white' : 'bg-gray-800 border-gray-600 text-gray-400'
               }`}>
                 {s}
               </div>
-              {s < 4 && (
-                <div className={`h-1 w-16 md:w-32 mx-2 ${
+              {s < 5 && (
+                <div className={`h-1 w-12 md:w-24 mx-2 ${
                   step > s ? 'bg-blue-600' : 'bg-gray-700'
                 }`}></div>
               )}
             </div>
           ))}
         </div>
-        <div className="flex justify-between w-[38.8vw] mt-2 text-sm">
+        <div className="flex justify-between w-[42vw] mt-2 text-sm">
           <span className={step >= 1 ? 'text-blue-400' : 'text-gray-500'}>Sender</span>
           <span className={step >= 2 ? 'text-blue-400' : 'text-gray-500'}>Receiver</span>
-          <span className={step >= 3 ? 'text-blue-400' : 'text-gray-500'}>Parcel Details</span>
+          <span className={step >= 3 ? 'text-blue-400' : 'text-gray-500'}>Parcel</span>
           <span className={step >= 4 ? 'text-blue-400' : 'text-gray-500'}>Review</span>
+          <span className={step >= 5 ? 'text-blue-400' : 'text-gray-500'}>Payment</span>
         </div>
       </div>
 
@@ -401,13 +521,85 @@ const NewShipment = () => {
                   <p className="text-gray-400 text-sm mt-2">Description: {shipmentData.description}</p>
                 )}
               </div>
+
+              <div className="bg-green-900/20 border border-green-700 p-4 rounded-lg">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-300">Estimated Shipping Cost:</span>
+                  <span className="text-2xl font-bold text-green-400">Rs. {calculateShippingCost()}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Step 5: Payment */}
+        {step === 5 && (
+          <div className="space-y-6">
+            <h3 className="text-xl font-bold text-white mb-6">Payment</h3>
+            
+            <div className="bg-blue-900/20 border border-blue-700 p-6 rounded-lg mb-6">
+              <div className="flex justify-between items-center mb-4">
+                <span className="text-lg text-gray-300">Total Amount:</span>
+                <span className="text-3xl font-bold text-blue-400">Rs. {calculateShippingCost()}</span>
+              </div>
+              <p className="text-sm text-gray-400">Tracking Number: {createdParcel?.trackingNumber}</p>
+            </div>
+
+            <div>
+              <label className="block text-gray-400 text-sm font-medium mb-2">Payment Method *</label>
+              <select
+                value={shipmentData.paymentMethod}
+                onChange={(e) => handleInputChange('paymentMethod', e.target.value)}
+                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500"
+              >
+                <option value="credit_card">Credit Card</option>
+                <option value="cash">Cash</option>
+                <option value="bank_transfer">Bank Transfer</option>
+              </select>
+            </div>
+
+            {shipmentData.paymentMethod === 'credit_card' && (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-gray-400 text-sm font-medium mb-2">Card Number</label>
+                  <input
+                    type="text"
+                    placeholder="1234 5678 9012 3456"
+                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-gray-400 text-sm font-medium mb-2">Expiry Date</label>
+                    <input
+                      type="text"
+                      placeholder="MM/YY"
+                      className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-gray-400 text-sm font-medium mb-2">CVV</label>
+                    <input
+                      type="text"
+                      placeholder="123"
+                      className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="bg-yellow-900/20 border border-yellow-700 p-4 rounded-lg">
+              <p className="text-sm text-yellow-400">
+                <strong>Note:</strong> This is a demo payment system. In production, integrate with a secure payment gateway like Stripe or PayPal.
+              </p>
             </div>
           </div>
         )}
 
         {/* Navigation Buttons */}
         <div className="flex gap-4 mt-8 pt-6 border-t border-gray-700">
-          {step > 1 && (
+          {step > 1 && step < 5 && (
             <button
               onClick={prevStep}
               className="px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors"
@@ -423,13 +615,21 @@ const NewShipment = () => {
             >
               Next
             </button>
-          ) : (
+          ) : step === 4 ? (
             <button
               onClick={handleSubmit}
               disabled={loading}
               className="flex-1 px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Creating...' : 'Create Shipment'}
+              {loading ? 'Creating Shipment...' : 'Proceed to Payment'}
+            </button>
+          ) : (
+            <button
+              onClick={handlePayment}
+              disabled={paymentProcessing}
+              className="flex-1 px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {paymentProcessing ? 'Processing Payment...' : 'Complete Payment'}
             </button>
           )}
         </div>

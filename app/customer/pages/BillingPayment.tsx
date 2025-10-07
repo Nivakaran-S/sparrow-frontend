@@ -111,7 +111,7 @@ const BillingPayment = () => {
 
       {/* Tabs */}
       <div className="flex gap-4 mb-8 border-b border-gray-700">
-        {["overview", "methods", "invoices", "transactions"].map((tab) => (
+        {["overview", "invoices", "transactions"].map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -260,7 +260,7 @@ const BillingPayment = () => {
                     <tr key={invoice._id} className="hover:bg-gray-800/50 transition-colors">
                       <td className="px-6 py-4 text-white font-mono">{invoice.invoiceNumber}</td>
                       <td className="px-6 py-4 text-gray-400">{new Date(invoice.issueDate).toLocaleDateString()}</td>
-                      <td className="px-6 py-4 text-white font-semibold">${invoice.totalAmount.toFixed(2)}</td>
+                      <td className="px-6 py-4 text-white font-semibold">Rs. {invoice.totalAmount.toFixed(2)}</td>
                       <td className="px-6 py-4">
                         <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(invoice.status)}`}>
                           {invoice.status}
@@ -344,7 +344,7 @@ const BillingPayment = () => {
                       <td className="px-6 py-4 text-white font-mono">{payment._id.slice(-8).toUpperCase()}</td>
                       <td className="px-6 py-4 text-gray-400">{new Date(payment.createdAt).toLocaleDateString()}</td>
                       <td className="px-6 py-4 text-white">{payment.paymentMethod.replace('_', ' ')}</td>
-                      <td className="px-6 py-4 text-white font-semibold">${payment.amount.toFixed(2)}</td>
+                      <td className="px-6 py-4 text-white font-semibold">Rs. {payment.amount.toFixed(2)}</td>
                       <td className="px-6 py-4">
                         <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(payment.paymentStatus)}`}>
                           {payment.paymentStatus}
