@@ -12,6 +12,7 @@ import PerformanceReports from "./pages/PerformanceReports";
 import RoutePlanning from "./pages/RoutePlanning";
 import WarehouseManagement from "./pages/WarehouseManagement";
 import LiveTracking from "./pages/LiveTracking";
+import SwiftScreen from "./pages/SwiftScreen";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api-gateway-nine-orpin.vercel.app";
 
@@ -101,6 +102,7 @@ export default function StaffDashboard() {
           {activeTab === "routes" && <RoutePlanning  />}
           {activeTab === "tracking" && <LiveTracking />}
           {activeTab === "reports" && <PerformanceReports userId={user?.id} />}
+          {activeTab === "swift" && <SwiftScreen />}
         </main>
       </div>
     </div>

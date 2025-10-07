@@ -111,6 +111,24 @@ const StaffSidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
               </button>
             </div>
           </div>
+          {/* Swift Section */}
+          <div className="px-6 mt-[15px]">
+            <h3 className="text-gray-400 text-sm font-semibold uppercase tracking-wider mb-4">
+              Swift
+            </h3>
+            <div className="space-y-1">
+              <button
+                className={`w-full flex cursor-pointer items-center rounded-[10px] gap-3 px-5 py-3 text-left transition-all border-l-4 ${
+                  activeTab === "swift"
+                    ? "bg-gray-800 text-blue-400 border-l-blue-400"
+                    : "text-gray-300 border-l-transparent hover:bg-gray-800 hover:text-blue-400 hover:border-l-blue-400"
+                }`}
+                onClick={() => setActiveTab("swift")}
+              >
+                <span className="font-medium">Swift</span>
+              </button>
+            </div>
+          </div>
         </div>
       </nav>
     </div>
