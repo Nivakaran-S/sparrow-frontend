@@ -1,34 +1,28 @@
 "use client";
 import { useState } from "react";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api-gateway-nine-orpin.vercel.app";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api-gateway-nine-orpin.vercel.app/api/parcels";
 
 const NewShipment = () => {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [createdParcel, setCreatedParcel] = useState<any>(null);
   
   const [shipmentData, setShipmentData] = useState({
-    // Sender Information
     senderName: "",
     senderPhone: "",
     senderEmail: "",
     senderAddress: "",
-    
-    // Receiver Information
     receiverName: "",
     receiverPhone: "",
     receiverEmail: "",
     receiverAddress: "",
-    
-    // Parcel Details
     weight: "",
     weightUnit: "kg",
     length: "",
     width: "",
     height: "",
     dimensionUnit: "cm",
-    
-    // Additional Info
     description: "",
     value: "",
     specialInstructions: ""
@@ -86,7 +80,9 @@ const NewShipment = () => {
 
       if (response.ok) {
         const result = await response.json();
+        setCreatedParcel(result.data);
         alert(`Shipment created successfully! Tracking Number: ${result.data.trackingNumber}`);
+        
         // Reset form
         setShipmentData({
           senderName: "",
@@ -109,11 +105,12 @@ const NewShipment = () => {
         });
         setStep(1);
       } else {
-        alert('Failed to create shipment');
+        const error = await response.json();
+        alert(`Failed to create shipment: ${error.message || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('Error creating shipment:', error);
-      alert('Error creating shipment');
+      alert('Error creating shipment. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -141,7 +138,7 @@ const NewShipment = () => {
   };
 
   return (
-    <div className="text-white flex flex-col items-center ">
+    <div className="text-white flex flex-col items-center">
       <div className="mb-8">
         <h2 className="text-3xl font-bold mb-2">Create New Shipment</h2>
         <p className="text-gray-400">Fill in the details to create a new parcel shipment</p>

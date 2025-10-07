@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api-gateway-nine-orpin.vercel.app";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api-gateway-nine-orpin.vercel.app/api/parcels";
 
 const CustomerOverview = () => {
   const [stats, setStats] = useState({

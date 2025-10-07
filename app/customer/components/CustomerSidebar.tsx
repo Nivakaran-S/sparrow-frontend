@@ -18,7 +18,6 @@ const CustomerSidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) =>
       items: [
         { id: "profile", label: "Profile Settings"},
         { id: "billing", label: "Billing & Payment" },
-        { id: "addresses", label: "Saved Addresses" },
       ]
     },
     {

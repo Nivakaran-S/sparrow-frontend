@@ -1,5 +1,7 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api-gateway-nine-orpin.vercel.app/api/parcels";
 
 const BillingPayment = () => {
   const [activeTab, setActiveTab] = useState("overview");
@@ -7,18 +9,98 @@ const BillingPayment = () => {
     { id: 1, type: "Credit Card", last4: "4242", expiry: "12/25", isDefault: true },
     { id: 2, type: "PayPal", email: "user@example.com", isDefault: false }
   ]);
+  const [invoices, setInvoices] = useState<any[]>([]);
+  const [payments, setPayments] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState<string>("");
 
-  const invoices = [
-    { id: "INV-001", date: "2025-01-15", amount: 125.0, status: "paid" },
-    { id: "INV-002", date: "2025-01-10", amount: 89.5, status: "paid" },
-    { id: "INV-003", date: "2025-01-05", amount: 156.75, status: "pending" }
-  ];
+  useEffect(() => {
+    fetchBillingData();
+  }, []);
 
-  const transactions = [
-    { id: "TXN-001", date: "2025-01-15", description: "Shipment TRK001", amount: 125.0, status: "completed" },
-    { id: "TXN-002", date: "2025-01-10", description: "Shipment TRK002", amount: 89.5, status: "completed" },
-    { id: "TXN-003", date: "2025-01-05", description: "Shipment TRK003", amount: 156.75, status: "pending" }
-  ];
+  const fetchBillingData = async () => {
+    try {
+      // Fetch invoices
+      const invoiceResponse = await fetch(`${API_BASE_URL}/api/invoice`, {
+        credentials: 'include',
+      });
+      
+      if (invoiceResponse.ok) {
+        const invoiceData = await invoiceResponse.json();
+        setInvoices(invoiceData.data || []);
+      }
+
+      // Fetch payments
+      const paymentResponse = await fetch(`${API_BASE_URL}/api/payment`, {
+        credentials: 'include',
+      });
+      
+      if (paymentResponse.ok) {
+        const paymentData = await paymentResponse.json();
+        setPayments(paymentData.data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching billing data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    const colors: Record<string, string> = {
+      paid: "bg-green-900/30 text-green-400",
+      issued: "bg-blue-900/30 text-blue-400",
+      pending: "bg-yellow-900/30 text-yellow-400",
+      overdue: "bg-red-900/30 text-red-400",
+      cancelled: "bg-gray-900/30 text-gray-400",
+      successful: "bg-green-900/30 text-green-400",
+      processing: "bg-blue-900/30 text-blue-400",
+      failed: "bg-red-900/30 text-red-400",
+      refunded: "bg-purple-900/30 text-purple-400",
+    };
+    return colors[status] || "bg-gray-900/30 text-gray-400";
+  };
+
+  const calculateTotalSpent = () => {
+    return payments
+      .filter(p => p.paymentStatus === 'successful')
+      .reduce((sum, p) => sum + (p.amount || 0), 0);
+  };
+
+  const calculatePendingPayments = () => {
+    return invoices
+      .filter(i => i.status === 'issued' || i.status === 'overdue')
+      .reduce((sum, i) => sum + (i.totalAmount || 0), 0);
+  };
+
+  const downloadInvoice = async (invoiceId: string) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/invoice/${invoiceId}`, {
+        credentials: 'include',
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        // Create downloadable invoice (simple JSON for now)
+        const blob = new Blob([JSON.stringify(data.data, null, 2)], { type: 'application/json' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `invoice-${data.data.invoiceNumber}.json`;
+        a.click();
+      }
+    } catch (error) {
+      console.error('Error downloading invoice:', error);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="text-white">
@@ -50,21 +132,25 @@ const BillingPayment = () => {
           {/* Balance Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="bg-gradient-to-br from-blue-900/30 to-gray-900 p-6 rounded-xl border border-blue-700">
-              <p className="text-gray-400 text-sm mb-2">Total Spent (This Month)</p>
-              <p className="text-3xl font-bold text-white">Rs. 371.25</p>
-              <p className="text-gray-400 text-sm mt-2">3 transactions</p>
+              <p className="text-gray-400 text-sm mb-2">Total Spent (All Time)</p>
+              <p className="text-3xl font-bold text-white">Rs. {calculateTotalSpent().toFixed(2)}</p>
+              <p className="text-gray-400 text-sm mt-2">{payments.filter(p => p.paymentStatus === 'successful').length} transactions</p>
             </div>
 
             <div className="bg-gradient-to-br from-green-900/30 to-gray-900 p-6 rounded-xl border border-green-700">
               <p className="text-gray-400 text-sm mb-2">Pending Payments</p>
-              <p className="text-3xl font-bold text-white">Rs. 156.75</p>
-              <p className="text-yellow-400 text-sm mt-2">1 invoice pending</p>
+              <p className="text-3xl font-bold text-white">Rs. {calculatePendingPayments().toFixed(2)}</p>
+              <p className="text-yellow-400 text-sm mt-2">
+                {invoices.filter(i => i.status === 'issued' || i.status === 'overdue').length} invoice(s) pending
+              </p>
             </div>
 
             <div className="bg-gradient-to-br from-purple-900/30 to-gray-900 p-6 rounded-xl border border-purple-700">
               <p className="text-gray-400 text-sm mb-2">Current Balance</p>
-              <p className="text-3xl font-bold text-white">Rs. 0.00</p>
-              <p className="text-green-400 text-sm mt-2">All payments up to date</p>
+              <p className="text-3xl font-bold text-white">Rs. {calculatePendingPayments().toFixed(2)}</p>
+              <p className={calculatePendingPayments() > 0 ? "text-yellow-400 text-sm mt-2" : "text-green-400 text-sm mt-2"}>
+                {calculatePendingPayments() > 0 ? 'Payment required' : 'All payments up to date'}
+              </p>
             </div>
           </div>
 
@@ -72,9 +158,9 @@ const BillingPayment = () => {
           <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl border border-gray-700 p-6">
             <h3 className="text-xl font-bold text-white mb-4">Recent Activity</h3>
             <div className="space-y-3">
-              {transactions.slice(0, 5).map((txn) => (
+              {payments.slice(0, 5).map((payment) => (
                 <div
-                  key={txn.id}
+                  key={payment._id}
                   className="flex items-center justify-between p-4 bg-gray-800/50 rounded-lg border border-gray-700"
                 >
                   <div className="flex items-center gap-4">
@@ -82,20 +168,14 @@ const BillingPayment = () => {
                       💳
                     </div>
                     <div>
-                      <p className="text-white font-medium">{txn.description}</p>
-                      <p className="text-gray-400 text-sm">{txn.date}</p>
+                      <p className="text-white font-medium">Payment for {payment.parcels?.length || 0} parcel(s)</p>
+                      <p className="text-gray-400 text-sm">{new Date(payment.createdAt).toLocaleDateString()}</p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-white font-bold">${txn.amount.toFixed(2)}</p>
-                    <span
-                      className={`text-xs px-2 py-1 rounded-full ${
-                        txn.status === "completed"
-                          ? "bg-green-900/30 text-green-400"
-                          : "bg-yellow-900/30 text-yellow-400"
-                      }`}
-                    >
-                      {txn.status}
+                    <p className="text-white font-bold">Rs. {payment.amount.toFixed(2)}</p>
+                    <span className={`text-xs px-2 py-1 rounded-full ${getStatusColor(payment.paymentStatus)}`}>
+                      {payment.paymentStatus}
                     </span>
                   </div>
                 </div>
@@ -157,42 +237,6 @@ const BillingPayment = () => {
               </div>
             ))}
           </div>
-
-          {/* Add New Card Form */}
-          <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl border border-gray-700 p-6">
-            <h3 className="text-xl font-bold text-white mb-6">Add New Payment Method</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-gray-400 text-sm font-medium mb-2">Card Number</label>
-                <input
-                  type="text"
-                  placeholder="1234 5678 9012 3456"
-                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-gray-400 text-sm font-medium mb-2">Expiry Date</label>
-                  <input
-                    type="text"
-                    placeholder="MM/YY"
-                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-gray-400 text-sm font-medium mb-2">CVV</label>
-                  <input
-                    type="text"
-                    placeholder="123"
-                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-              </div>
-              <button className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors">
-                Add Card
-              </button>
-            </div>
-          </div>
         </div>
       )}
 
@@ -204,8 +248,8 @@ const BillingPayment = () => {
               <table className="w-full">
                 <thead className="bg-gray-800 border-b border-gray-700">
                   <tr>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-400">Invoice ID</th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-400">Date</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-400">Invoice Number</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-400">Issue Date</th>
                     <th className="px-6 py-4 text-left text-sm font-semibold text-gray-400">Amount</th>
                     <th className="px-6 py-4 text-left text-sm font-semibold text-gray-400">Status</th>
                     <th className="px-6 py-4 text-left text-sm font-semibold text-gray-400">Actions</th>
@@ -213,27 +257,24 @@ const BillingPayment = () => {
                 </thead>
                 <tbody className="divide-y divide-gray-700">
                   {invoices.map((invoice) => (
-                    <tr key={invoice.id} className="hover:bg-gray-800/50 transition-colors">
-                      <td className="px-6 py-4 text-white font-mono">{invoice.id}</td>
-                      <td className="px-6 py-4 text-gray-400">{invoice.date}</td>
-                      <td className="px-6 py-4 text-white font-semibold">${invoice.amount.toFixed(2)}</td>
+                    <tr key={invoice._id} className="hover:bg-gray-800/50 transition-colors">
+                      <td className="px-6 py-4 text-white font-mono">{invoice.invoiceNumber}</td>
+                      <td className="px-6 py-4 text-gray-400">{new Date(invoice.issueDate).toLocaleDateString()}</td>
+                      <td className="px-6 py-4 text-white font-semibold">${invoice.totalAmount.toFixed(2)}</td>
                       <td className="px-6 py-4">
-                        <span
-                          className={`px-3 py-1 rounded-full text-xs font-medium ${
-                            invoice.status === "paid"
-                              ? "bg-green-900/30 text-green-400"
-                              : "bg-yellow-900/30 text-yellow-400"
-                          }`}
-                        >
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(invoice.status)}`}>
                           {invoice.status}
                         </span>
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex gap-2">
-                          <button className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm transition-colors">
+                          <button 
+                            onClick={() => downloadInvoice(invoice._id)}
+                            className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm transition-colors"
+                          >
                             Download
                           </button>
-                          {invoice.status === "pending" && (
+                          {(invoice.status === "issued" || invoice.status === "overdue") && (
                             <button className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-sm transition-colors">
                               Pay Now
                             </button>
@@ -268,7 +309,7 @@ const BillingPayment = () => {
                 <label className="block text-gray-400 text-sm font-medium mb-2">Status</label>
                 <select className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500">
                   <option>All Statuses</option>
-                  <option>Completed</option>
+                  <option>Successful</option>
                   <option>Pending</option>
                   <option>Failed</option>
                 </select>
@@ -292,27 +333,21 @@ const BillingPayment = () => {
                   <tr>
                     <th className="px-6 py-4 text-left text-sm font-semibold text-gray-400">Transaction ID</th>
                     <th className="px-6 py-4 text-left text-sm font-semibold text-gray-400">Date</th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-400">Description</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-400">Method</th>
                     <th className="px-6 py-4 text-left text-sm font-semibold text-gray-400">Amount</th>
                     <th className="px-6 py-4 text-left text-sm font-semibold text-gray-400">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-700">
-                  {transactions.map((txn) => (
-                    <tr key={txn.id} className="hover:bg-gray-800/50 transition-colors">
-                      <td className="px-6 py-4 text-white font-mono">{txn.id}</td>
-                      <td className="px-6 py-4 text-gray-400">{txn.date}</td>
-                      <td className="px-6 py-4 text-white">{txn.description}</td>
-                      <td className="px-6 py-4 text-white font-semibold">${txn.amount.toFixed(2)}</td>
+                  {payments.map((payment) => (
+                    <tr key={payment._id} className="hover:bg-gray-800/50 transition-colors">
+                      <td className="px-6 py-4 text-white font-mono">{payment._id.slice(-8).toUpperCase()}</td>
+                      <td className="px-6 py-4 text-gray-400">{new Date(payment.createdAt).toLocaleDateString()}</td>
+                      <td className="px-6 py-4 text-white">{payment.paymentMethod.replace('_', ' ')}</td>
+                      <td className="px-6 py-4 text-white font-semibold">${payment.amount.toFixed(2)}</td>
                       <td className="px-6 py-4">
-                        <span
-                          className={`px-3 py-1 rounded-full text-xs font-medium ${
-                            txn.status === "completed"
-                              ? "bg-green-900/30 text-green-400"
-                              : "bg-yellow-900/30 text-yellow-400"
-                          }`}
-                        >
-                          {txn.status}
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(payment.paymentStatus)}`}>
+                          {payment.paymentStatus}
                         </span>
                       </td>
                     </tr>
