@@ -28,7 +28,7 @@ const sendMessage = async (message: string) => {
   try {
     // Axios POST to your Hugging Face Space endpoint
     const response = await axios.post(
-      "https://nivakaran-sparrowagenticai.hf.space/post",
+      "https://nivakaran-sparrowagenticai.hf.space/chat",
       {
         data: [message], // Gradio expects input as an array
       },
