@@ -135,9 +135,6 @@ const DriverNavigation = ({ user }: { user?: UserResponse }) => {
                   <button className="w-full px-4 py-2 text-left text-white hover:bg-gray-700 transition-colors">
                     Profile Settings
                   </button>
-                  <button className="w-full px-4 py-2 text-left text-white hover:bg-gray-700 transition-colors">
-                    Billing & Payment
-                  </button>
                   <div className="border-t border-gray-700 my-2"></div>
                   <button 
                     onClick={handleLogout}

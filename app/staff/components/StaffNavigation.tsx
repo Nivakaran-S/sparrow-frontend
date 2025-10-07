@@ -71,12 +71,7 @@ const StaffNavigation = ({ user }: { user?: UserResponse }) => {
           
           <div className="flex items-center gap-6">
             {/* Quick Actions */}
-            <div className="hidden md:flex items-center gap-3">
-              <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors">
-                + New Shipment
-              </button>
-            </div>
-
+           
             {/* Notifications */}
             <div className="relative" ref={notificationsRef}>
               <div 
@@ -139,9 +134,6 @@ const StaffNavigation = ({ user }: { user?: UserResponse }) => {
                 <div className="absolute right-0 mt-2 w-48 bg-gray-800 border border-gray-700 rounded-lg shadow-lg py-2 z-50">
                   <button className="w-full px-4 py-2 text-left text-white hover:bg-gray-700 transition-colors">
                     Profile Settings
-                  </button>
-                  <button className="w-full px-4 py-2 text-left text-white hover:bg-gray-700 transition-colors">
-                    Billing & Payment
                   </button>
                   <div className="border-t border-gray-700 my-2"></div>
                   <button 

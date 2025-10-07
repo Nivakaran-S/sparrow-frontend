@@ -66,12 +66,7 @@ const AdminNavigation = ({ user }: { user?: UserResponse }) => {
           </div>
           
           <div className="flex items-center gap-6">
-            {/* Quick Actions */}
-            <div className="hidden md:flex items-center gap-3">
-              <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors">
-                + New Shipment
-              </button>
-            </div>
+           
 
             {/* Notifications */}
             <div className="relative" ref={notificationsRef}>
@@ -136,9 +131,7 @@ const AdminNavigation = ({ user }: { user?: UserResponse }) => {
                   <button className="w-full px-4 py-2 text-left text-white hover:bg-gray-700 transition-colors">
                     Profile Settings
                   </button>
-                  <button className="w-full px-4 py-2 text-left text-white hover:bg-gray-700 transition-colors">
-                    Billing & Payment
-                  </button>
+                  
                   <div className="border-t border-gray-700 my-2"></div>
                   <button 
                     onClick={handleLogout}
