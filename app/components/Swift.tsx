@@ -26,28 +26,30 @@ const Swift = () => {
 // ---- API FUNCTION ----
 const sendMessage = async (message: string) => {
   try {
-    // Axios POST to your Hugging Face Space endpoint
     const response = await axios.post(
       "https://nivakaran-sparrowagenticai.hf.space/chat",
       {
-        data: [message], // Gradio expects input as an array
+        message: message, // ✅ backend expects this key
       },
       {
         headers: {
           "Content-Type": "application/json",
         },
-        timeout: 20000, // 20s timeout for safety
+        timeout: 20000,
       }
     );
 
-    // Typical Gradio response structure: { data: ["response text"] }
-    const answer = response.data?.data?.[0] ?? "No response received";
-
-    return {
-      success: true,
-      response: answer,
-      thread_id: null,
-    };
+    // ✅ Backend responds with JSON { success, response, thread_id }
+    const data = response.data;
+    if (data.success) {
+      return {
+        success: true,
+        response: data.response,
+        thread_id: data.thread_id,
+      };
+    } else {
+      return { success: false, error: data.error || "Unknown error" };
+    }
   } catch (error: any) {
     console.error("Error in sendMessage:", error);
 
@@ -63,6 +65,7 @@ const sendMessage = async (message: string) => {
     return { success: false, error: errorMessage };
   }
 };
+
 
   // Manage thread ID (persist in localStorage)
   useEffect(() => {
