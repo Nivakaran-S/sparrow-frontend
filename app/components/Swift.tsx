@@ -35,7 +35,7 @@ const sendMessage = async (message: string) => {
         headers: {
           "Content-Type": "application/json",
         },
-        timeout: 20000,
+        timeout: 100000,
       }
     );
 
