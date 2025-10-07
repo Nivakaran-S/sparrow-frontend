@@ -24,8 +24,8 @@ interface Consolidation {
   warehouseId?: any;
   assignedDriver?: any;
   createdBy?: any;
-  createdAt?: string;
-  updatedAt?: string;
+  createdTimestamp?: string;
+  updatedTimestamp?: string;
 }
 
 interface Driver {
@@ -57,6 +57,7 @@ export default function ParcelConsolidation({ userId }: { userId?: string }) {
   const [selectedDriverId, setSelectedDriverId] = useState<string>("");
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [referenceCode, setReferenceCode] = useState("");
   const [masterTrackingNumber, setMasterTrackingNumber] = useState("");
   const [showModal, setShowModal] = useState(false);
@@ -114,7 +115,7 @@ export default function ParcelConsolidation({ userId }: { userId?: string }) {
 
       if (response.ok) {
         const data = await response.json();
-        setConsolidations(data || []);
+        setConsolidations(data.data || data || []);
       } else {
         throw new Error('Failed to fetch consolidations');
       }
@@ -174,7 +175,7 @@ export default function ParcelConsolidation({ userId }: { userId?: string }) {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
-    const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+    const random = Math.floor(Math.random() + 10000).toString().padStart(4, '0');
     return `CON-${year}${month}${day}-${random}`;
   };
 
@@ -193,20 +194,30 @@ export default function ParcelConsolidation({ userId }: { userId?: string }) {
       return;
     }
 
+    if (!selectedWarehouseId) {
+      setError('Please select a warehouse');
+      return;
+    }
+
     setError("");
     setSuccess("");
+    setIsSubmitting(true);
 
     try {
+      const finalReferenceCode = referenceCode || generateReferenceCode();
+      const finalMasterTracking = masterTrackingNumber || generateMasterTrackingNumber();
+
       const consolidationData = {
-        referenceCode: referenceCode || generateReferenceCode(),
-        masterTrackingNumber: masterTrackingNumber || generateMasterTrackingNumber(),
+        referenceCode: finalReferenceCode,
+        masterTrackingNumber: finalMasterTracking,
         parcels: selectedParcelIds,
-        createdBy: userId,
+        createdBy: userId || '507f1f77bcf86cd799439011', // Default user ID if not provided
         status: 'pending',
-        ...(selectedWarehouseId && { warehouseId: selectedWarehouseId }),
+        warehouseId: selectedWarehouseId,
         ...(selectedDriverId && { assignedDriver: selectedDriverId })
       };
 
+      // Create consolidation
       const response = await fetch(`${API_BASE_URL}/api/consolidations/api/consolidations`, {
         method: 'POST',
         credentials: 'include',
@@ -214,53 +225,90 @@ export default function ParcelConsolidation({ userId }: { userId?: string }) {
         body: JSON.stringify(consolidationData)
       });
 
-      if (response.ok) {
-        const newConsolidation = await response.json();
-        
-        // Update parcel statuses and warehouse/driver info
-        await Promise.all(selectedParcelIds.map(parcelId =>
-          fetch(`${API_BASE_URL}/api/parcels/api/parcels/${parcelId}`, {
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || errorData.message || 'Failed to create consolidation');
+      }
+
+      const newConsolidation = await response.json();
+      const consolidationId = newConsolidation._id || newConsolidation.data?._id;
+      
+      // Update each parcel
+      const updatePromises = selectedParcelIds.map(async (parcelId) => {
+        try {
+          // Update parcel details
+          const updateResponse = await fetch(`${API_BASE_URL}/api/parcels/api/parcels/${parcelId}`, {
             method: 'PUT',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
               status: 'consolidated',
-              consolidationId: newConsolidation._id,
-              ...(selectedWarehouseId && { warehouseId: selectedWarehouseId }),
+              consolidationId: consolidationId,
+              warehouseId: selectedWarehouseId,
               ...(selectedDriverId && { assignedDriver: selectedDriverId })
             })
-          }).then(async (res) => {
-            // Also update status history
-            await fetch(`${API_BASE_URL}/api/parcels/api/parcels/${parcelId}/status`, {
-              method: 'PATCH',
-              credentials: 'include',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ 
-                status: 'consolidated',
-                service: 'consolidation-service',
-                note: 'Parcel consolidated'
-              })
-            });
-          })
-        ));
+          });
 
-        setSelectedParcelIds([]);
-        setSelectedDriverId("");
-        setSelectedWarehouseId("");
-        setReferenceCode("");
-        setMasterTrackingNumber("");
-        setShowModal(false);
-        setSuccess(`Consolidation created successfully! Tracking: ${newConsolidation.masterTrackingNumber}`);
-        
-        await fetchData();
-        setTimeout(() => setSuccess(''), 5000);
-      } else {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create consolidation');
-      }
+          if (!updateResponse.ok) {
+            console.error(`Failed to update parcel ${parcelId}`);
+          }
+
+          // Update parcel status history
+          await fetch(`${API_BASE_URL}/api/parcels/api/parcels/${parcelId}/status`, {
+            method: 'PATCH',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              status: 'consolidated',
+              service: 'consolidation-service',
+              note: `Parcel consolidated under ${finalReferenceCode}`
+            })
+          });
+
+          // Add parcel to warehouse
+          await fetch(`${API_BASE_URL}/api/warehouses/warehouses/${selectedWarehouseId}/add-parcel`, {
+            method: 'PATCH',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ parcelId })
+          });
+
+        } catch (err) {
+          console.error(`Error updating parcel ${parcelId}:`, err);
+        }
+      });
+
+      await Promise.all(updatePromises);
+
+      // Update consolidation status history
+      await fetch(`${API_BASE_URL}/api/consolidations/api/consolidations/${consolidationId}/status`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          status: 'consolidated',
+          note: 'Consolidation created and parcels added to warehouse'
+        })
+      });
+
+      // Reset form
+      setSelectedParcelIds([]);
+      setSelectedDriverId("");
+      setSelectedWarehouseId("");
+      setReferenceCode("");
+      setMasterTrackingNumber("");
+      setShowModal(false);
+      
+      setSuccess(`Consolidation created successfully! Tracking: ${finalMasterTracking}`);
+      
+      await fetchData();
+      setTimeout(() => setSuccess(''), 5000);
+      
     } catch (error: any) {
       console.error('Error creating consolidation:', error);
       setError(error.message || 'Failed to create consolidation');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -357,7 +405,7 @@ export default function ParcelConsolidation({ userId }: { userId?: string }) {
         <div className="bg-gradient-to-r from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6">
           <div className="flex flex-wrap gap-4 items-center justify-between">
             <button
-              className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-6 py-2 rounded-lg font-medium transition-all hover:-translate-y-1 shadow-lg shadow-blue-600/30 flex items-center gap-2"
+              className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-6 py-2 rounded-lg font-medium transition-all hover:-translate-y-1 shadow-lg shadow-blue-600/30 flex items-center gap-2 cursor-pointer"
               onClick={() => setShowModal(true)}
             >
               <Plus className="w-4 h-4" />
@@ -464,7 +512,7 @@ export default function ParcelConsolidation({ userId }: { userId?: string }) {
                       <div>
                         <p className="text-gray-400">Created</p>
                         <p className="text-gray-300">
-                          {consolidation.createdAt ? new Date(consolidation.createdAt).toLocaleDateString() : 'N/A'}
+                          {consolidation.createdTimestamp ? new Date(consolidation.createdTimestamp).toLocaleDateString() : 'N/A'}
                         </p>
                       </div>
                     </div>
@@ -472,7 +520,7 @@ export default function ParcelConsolidation({ userId }: { userId?: string }) {
                     {consolidation.status === 'pending' && (
                       <div className="flex gap-2">
                         <button
-                          className="flex-1 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm transition-colors"
+                          className="flex-1 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm transition-colors cursor-pointer"
                           onClick={() => updateConsolidationStatus(consolidation._id, 'consolidated')}
                         >
                           Mark Consolidated
@@ -482,7 +530,7 @@ export default function ParcelConsolidation({ userId }: { userId?: string }) {
                     
                     {consolidation.status === 'consolidated' && (
                       <button
-                        className="w-full px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm transition-colors"
+                        className="w-full px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm transition-colors cursor-pointer"
                         onClick={() => updateConsolidationStatus(consolidation._id, 'in_transit')}
                       >
                         Mark In Transit
@@ -491,7 +539,7 @@ export default function ParcelConsolidation({ userId }: { userId?: string }) {
 
                     {consolidation.status === 'in_transit' && (
                       <button
-                        className="w-full px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm transition-colors"
+                        className="w-full px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm transition-colors cursor-pointer"
                         onClick={() => updateConsolidationStatus(consolidation._id, 'delivered')}
                       >
                         Mark Delivered
@@ -513,8 +561,9 @@ export default function ParcelConsolidation({ userId }: { userId?: string }) {
 
         {/* Parcel Selection Modal */}
         {showModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6 w-full max-w-3xl max-h-[85vh] flex flex-col overflow-hidden">
+          <div className="fixed inset-0  flex items-center justify-center z-[9999] ">
+            <div className="bg-black opacity-50 h-[100vh] w-[100vw]" ></div>
+            <div className="bg-gradient-to-br from-gray-800 absolute  to-gray-900 border border-gray-700 rounded-xl p-6 w-full max-w-3xl max-h-[85vh] flex flex-col overflow-hidden">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-white text-2xl font-semibold">Create Consolidation</h3>
                 <button 
@@ -526,7 +575,8 @@ export default function ParcelConsolidation({ userId }: { userId?: string }) {
                     setReferenceCode("");
                     setMasterTrackingNumber("");
                   }}
-                  className="text-gray-400 hover:text-white transition-colors"
+                  className="text-gray-400 hover:text-white transition-colors cursor-pointer"
+                  disabled={isSubmitting}
                 >
                   <X className="w-6 h-6" />
                 </button>
@@ -545,6 +595,7 @@ export default function ParcelConsolidation({ userId }: { userId?: string }) {
                       value={referenceCode}
                       onChange={e => setReferenceCode(e.target.value)}
                       className="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none"
+                      disabled={isSubmitting}
                     />
                   </div>
                   <div>
@@ -558,8 +609,30 @@ export default function ParcelConsolidation({ userId }: { userId?: string }) {
                       value={masterTrackingNumber}
                       onChange={e => setMasterTrackingNumber(e.target.value)}
                       className="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none"
+                      disabled={isSubmitting}
                     />
                   </div>
+                </div>
+
+                {/* Warehouse Selection - Required */}
+                <div>
+                  <label className="block text-gray-300 text-sm font-medium mb-2">
+                    <Warehouse className="w-4 h-4 inline mr-2" />
+                    Select Warehouse <span className="text-red-400">*</span>
+                  </label>
+                  <select
+                    value={selectedWarehouseId}
+                    onChange={(e) => setSelectedWarehouseId(e.target.value)}
+                    className="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none"
+                    disabled={isSubmitting}
+                  >
+                    <option value="">Select a warehouse...</option>
+                    {warehouses.map(warehouse => (
+                      <option key={warehouse._id} value={warehouse._id}>
+                        {warehouse.name} ({warehouse.code})
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 {/* Driver Selection */}
@@ -572,32 +645,13 @@ export default function ParcelConsolidation({ userId }: { userId?: string }) {
                     value={selectedDriverId}
                     onChange={(e) => setSelectedDriverId(e.target.value)}
                     className="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none"
+                    disabled={isSubmitting}
                   >
                     <option value="">Select a driver...</option>
                     {drivers.map(driver => (
                       <option key={driver._id} value={driver._id}>
                         {driver.details ? `${driver.details.firstName} ${driver.details.lastName}` : driver.userName}
                         {driver.details?.phoneNumber && ` - ${driver.details.phoneNumber}`}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Warehouse Selection */}
-                <div>
-                  <label className="block text-gray-300 text-sm font-medium mb-2">
-                    <Warehouse className="w-4 h-4 inline mr-2" />
-                    Select Warehouse (Optional)
-                  </label>
-                  <select
-                    value={selectedWarehouseId}
-                    onChange={(e) => setSelectedWarehouseId(e.target.value)}
-                    className="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none"
-                  >
-                    <option value="">Select a warehouse...</option>
-                    {warehouses.map(warehouse => (
-                      <option key={warehouse._id} value={warehouse._id}>
-                        {warehouse.name} ({warehouse.code})
                       </option>
                     ))}
                   </select>
@@ -611,7 +665,7 @@ export default function ParcelConsolidation({ userId }: { userId?: string }) {
                 
                 <div className="space-y-2">
                   <label className="block text-gray-300 text-sm font-medium mb-2">
-                    Select Parcels
+                    Select Parcels <span className="text-red-400">*</span>
                   </label>
                   {parcels.map(parcel => (
                     <label key={parcel._id} className="flex items-center gap-3 bg-gray-900 border border-gray-700 rounded-lg p-4 cursor-pointer hover:border-blue-500 transition-colors">
@@ -620,6 +674,7 @@ export default function ParcelConsolidation({ userId }: { userId?: string }) {
                         checked={selectedParcelIds.includes(parcel._id)}
                         onChange={() => handleSelectParcel(parcel._id)}
                         className="w-4 h-4 accent-blue-500"
+                        disabled={isSubmitting}
                       />
                       <Package className="w-5 h-5 text-gray-400" />
                       <div className="flex-1">
@@ -648,7 +703,7 @@ export default function ParcelConsolidation({ userId }: { userId?: string }) {
               <div className="flex gap-4 mt-6 pt-4 border-t border-gray-700">
                 <button
                   type="button"
-                  className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200 rounded-lg font-medium transition-colors"
+                  className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200 rounded-lg font-medium transition-colors cursor-pointer"
                   onClick={() => {
                     setShowModal(false);
                     setSelectedParcelIds([]);
@@ -657,20 +712,21 @@ export default function ParcelConsolidation({ userId }: { userId?: string }) {
                     setReferenceCode("");
                     setMasterTrackingNumber("");
                   }}
+                  disabled={isSubmitting}
                 >
                   Cancel
                 </button>
                 <button
                   type="button"
                   className={`flex-1 px-4 py-2 rounded-lg font-medium transition-all ${
-                    selectedParcelIds.length > 0
+                    selectedParcelIds.length > 0 && selectedWarehouseId && !isSubmitting
                       ? 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white cursor-pointer'
                       : 'bg-gray-600 text-gray-400 cursor-not-allowed'
                   }`}
                   onClick={handleConsolidate}
-                  disabled={selectedParcelIds.length === 0}
+                  disabled={selectedParcelIds.length === 0 || !selectedWarehouseId || isSubmitting}
                 >
-                  Create Consolidation ({selectedParcelIds.length})
+                  {isSubmitting ? 'Creating...' : `Create Consolidation (${selectedParcelIds.length})`}
                 </button>
               </div>
             </div>

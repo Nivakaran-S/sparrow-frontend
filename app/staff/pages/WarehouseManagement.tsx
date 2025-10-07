@@ -1,23 +1,25 @@
 'use client';
 import { useState, useEffect } from "react";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api-gateway-nine-orpin.vercel.app/api/warehouses";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api-gateway-nine-orpin.vercel.app";
+
+interface Address {
+  _id?: string;
+  locationNumber?: string;
+  street?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+  country?: string;
+  latitude?: number;
+  longitude?: number;
+}
 
 interface Warehouse {
   _id: string;
   name: string;
   code?: string;
-  address: {
-    _id?: string;
-    locationNumber?: string;
-    street?: string;
-    city?: string;
-    state?: string;
-    postalCode?: string;
-    country?: string;
-    latitude?: number;
-    longitude?: number;
-  };
+  address: Address | string;
   capacity?: {
     parcels?: number;
     weightLimit?: number;
@@ -29,6 +31,25 @@ interface Warehouse {
   updatedTimestamp?: string;
 }
 
+interface WarehouseFormData {
+  name: string;
+  code: string;
+  address: {
+    street: string;
+    city: string;
+    state: string;
+    postalCode: string;
+    country: string;
+    latitude: number;
+    longitude: number;
+  };
+  capacity: {
+    parcels: number;
+    weightLimit: number;
+  };
+  status: 'active' | 'inactive' | 'under_maintenance';
+}
+
 export default function WarehouseManagement({ userId }: { userId?: string }) {
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [showRegisterForm, setShowRegisterForm] = useState(false);
@@ -36,7 +57,7 @@ export default function WarehouseManagement({ userId }: { userId?: string }) {
     type: 'VIEW' | 'EDIT' | null,
     warehouse: Warehouse | null
   }>({ type: null, warehouse: null });
-  const [newWarehouse, setNewWarehouse] = useState<Partial<Warehouse>>({
+  const [newWarehouse, setNewWarehouse] = useState<WarehouseFormData>({
     name: "",
     code: "",
     address: {
@@ -56,6 +77,7 @@ export default function WarehouseManagement({ userId }: { userId?: string }) {
   });
   const [editWarehouse, setEditWarehouse] = useState<Partial<Warehouse>>({});
   const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -67,7 +89,7 @@ export default function WarehouseManagement({ userId }: { userId?: string }) {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch(`${API_BASE_URL}/warehouses`, {
+      const response = await fetch(`${API_BASE_URL}/api/warehouses/warehouses`, {
         credentials: 'include'
       });
 
@@ -116,9 +138,9 @@ export default function WarehouseManagement({ userId }: { userId?: string }) {
       setEditWarehouse(prev => ({
         ...prev,
         address: { 
-          ...prev.address, 
+          ...(typeof prev.address === 'object' ? prev.address : {}), 
           [field]: ['latitude', 'longitude'].includes(field) ? parseFloat(value) || 0 : value 
-        }
+        } as Address
       }));
     } else if (name.startsWith('capacity.')) {
       const field = name.split('.')[1];
@@ -134,10 +156,11 @@ export default function WarehouseManagement({ userId }: { userId?: string }) {
   const handleSubmit = async () => {
     setError(null);
     setSuccess(null);
+    setIsSubmitting(true);
 
     try {
       // First create the address
-      const addressResponse = await fetch(`${API_BASE_URL}/addresses`, {
+      const addressResponse = await fetch(`${API_BASE_URL}/api/warehouses/addresses`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -145,7 +168,8 @@ export default function WarehouseManagement({ userId }: { userId?: string }) {
       });
 
       if (!addressResponse.ok) {
-        throw new Error('Failed to create address');
+        const errorData = await addressResponse.json();
+        throw new Error(errorData.message || 'Failed to create address');
       }
 
       const addressData = await addressResponse.json();
@@ -154,14 +178,14 @@ export default function WarehouseManagement({ userId }: { userId?: string }) {
       // Then create the warehouse with the address ID
       const warehouseData = {
         name: newWarehouse.name,
-        code: newWarehouse.code,
+        code: newWarehouse.code || undefined,
         address: addressId,
         capacity: newWarehouse.capacity,
-        contact: userId,
+        contact: userId || '507f1f77bcf86cd799439011', // Default contact ID if userId not provided
         status: newWarehouse.status
       };
 
-      const response = await fetch(`${API_BASE_URL}/warehouses`, {
+      const response = await fetch(`${API_BASE_URL}/api/warehouses/warehouses`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -194,6 +218,8 @@ export default function WarehouseManagement({ userId }: { userId?: string }) {
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create warehouse');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -201,13 +227,42 @@ export default function WarehouseManagement({ userId }: { userId?: string }) {
     if (!activeModal.warehouse?._id) return;
     setError(null);
     setSuccess(null);
+    setIsSubmitting(true);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/warehouses/${activeModal.warehouse._id}`, {
+      // If address is being edited and is an object, update it first
+      let addressId = typeof activeModal.warehouse.address === 'string' 
+        ? activeModal.warehouse.address 
+        : activeModal.warehouse.address._id;
+
+      if (editWarehouse.address && typeof editWarehouse.address === 'object') {
+        if (addressId) {
+          // Update existing address
+          const addressResponse = await fetch(`${API_BASE_URL}/api/warehouses/addresses/${addressId}`, {
+            method: 'PUT',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(editWarehouse.address),
+          });
+
+          if (!addressResponse.ok) {
+            throw new Error('Failed to update address');
+          }
+        }
+      }
+
+      // Update warehouse
+      const updateData: any = {};
+      if (editWarehouse.name) updateData.name = editWarehouse.name;
+      if (editWarehouse.code) updateData.code = editWarehouse.code;
+      if (editWarehouse.capacity) updateData.capacity = editWarehouse.capacity;
+      if (editWarehouse.status) updateData.status = editWarehouse.status;
+
+      const response = await fetch(`${API_BASE_URL}/api/warehouses/warehouses/${activeModal.warehouse._id}`, {
         method: 'PUT',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editWarehouse),
+        body: JSON.stringify(updateData),
       });
 
       if (response.ok) {
@@ -221,6 +276,8 @@ export default function WarehouseManagement({ userId }: { userId?: string }) {
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update warehouse');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -229,7 +286,7 @@ export default function WarehouseManagement({ userId }: { userId?: string }) {
     setSuccess(null);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/warehouses/${id}/status`, {
+      const response = await fetch(`${API_BASE_URL}/api/warehouses/warehouses/${id}/status`, {
         method: 'PATCH',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -242,10 +299,39 @@ export default function WarehouseManagement({ userId }: { userId?: string }) {
         closeModal();
         setTimeout(() => setSuccess(null), 3000);
       } else {
-        throw new Error('Failed to update warehouse status');
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to update warehouse status');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update warehouse status');
+    }
+  };
+
+  const deleteWarehouse = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this warehouse? This action cannot be undone.')) {
+      return;
+    }
+
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/warehouses/warehouses/${id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+
+      if (response.ok) {
+        setSuccess('Warehouse deleted successfully!');
+        fetchWarehouses();
+        closeModal();
+        setTimeout(() => setSuccess(null), 3000);
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to delete warehouse');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete warehouse');
     }
   };
 
@@ -268,6 +354,12 @@ export default function WarehouseManagement({ userId }: { userId?: string }) {
       case 'under_maintenance': return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
       default: return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
     }
+  };
+
+  const getAddress = (address: Address | string | undefined): Address => {
+    if (!address) return {};
+    if (typeof address === 'string') return {};
+    return address;
   };
 
   const isFormValid = () => {
@@ -301,7 +393,7 @@ export default function WarehouseManagement({ userId }: { userId?: string }) {
           <p className="text-gray-400 mt-1">Monitor and manage warehouse operations</p>
         </div>
         <button 
-          className="bg-gradient-to-r cursor-pointer from-blue-900 to-blue-900 hover:from-blue-800 hover:to-blue-900 text-white px-6 py-2 rounded-lg font-medium transition-all"
+          className="bg-gradient-to-r cursor-pointer from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-6 py-2 rounded-lg font-medium transition-all"
           onClick={() => setShowRegisterForm(true)}
         >
           Register New Warehouse
@@ -310,9 +402,9 @@ export default function WarehouseManagement({ userId }: { userId?: string }) {
 
       {/* Register Warehouse Modal */}
       {showRegisterForm && (
-        <div className="fixed inset-0 flex left-[10vw] top-[15vh] items-center justify-center z-50 px-4">
-          <div onClick={() => setShowRegisterForm(false)} className="bg-black h-[90vh] w-[100%] opacity-[80%]"></div>
-          <div className="bg-gradient-to-br from-gray-800 to-gray-900 absolute border border-gray-700 rounded-xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 flex items-center justify-center z-50 px-4">
+          <div onClick={() => setShowRegisterForm(false)} className="absolute inset-0 bg-black opacity-60"></div>
+          <div className="bg-gradient-to-br from-gray-800 to-gray-900 relative border border-gray-700 rounded-xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
             <h3 className="text-white text-xl font-semibold mb-6">Register New Warehouse</h3>
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -322,7 +414,7 @@ export default function WarehouseManagement({ userId }: { userId?: string }) {
                 <input 
                   type="text"
                   name="name"
-                  value={newWarehouse.name || ''}
+                  value={newWarehouse.name}
                   onChange={handleInputChange}
                   className="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none"
                   placeholder="Enter warehouse name"
@@ -335,10 +427,10 @@ export default function WarehouseManagement({ userId }: { userId?: string }) {
                 <input 
                   type="text"
                   name="code"
-                  value={newWarehouse.code || ''}
+                  value={newWarehouse.code}
                   onChange={handleInputChange}
                   className="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none"
-                  placeholder="Enter warehouse code"
+                  placeholder="Enter warehouse code (optional)"
                 />
               </div>
               <div>
@@ -348,7 +440,7 @@ export default function WarehouseManagement({ userId }: { userId?: string }) {
                 <input 
                   type="text"
                   name="address.street"
-                  value={newWarehouse.address?.street || ''}
+                  value={newWarehouse.address.street}
                   onChange={handleInputChange}
                   className="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none"
                   placeholder="Enter street address"
@@ -361,7 +453,7 @@ export default function WarehouseManagement({ userId }: { userId?: string }) {
                 <input 
                   type="text"
                   name="address.city"
-                  value={newWarehouse.address?.city || ''}
+                  value={newWarehouse.address.city}
                   onChange={handleInputChange}
                   className="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none"
                   placeholder="Enter city"
@@ -374,7 +466,7 @@ export default function WarehouseManagement({ userId }: { userId?: string }) {
                 <input 
                   type="text"
                   name="address.state"
-                  value={newWarehouse.address?.state || ''}
+                  value={newWarehouse.address.state}
                   onChange={handleInputChange}
                   className="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none"
                   placeholder="Enter state"
@@ -387,7 +479,7 @@ export default function WarehouseManagement({ userId }: { userId?: string }) {
                 <input 
                   type="text"
                   name="address.country"
-                  value={newWarehouse.address?.country || ''}
+                  value={newWarehouse.address.country}
                   onChange={handleInputChange}
                   className="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none"
                   placeholder="Enter country"
@@ -400,7 +492,7 @@ export default function WarehouseManagement({ userId }: { userId?: string }) {
                 <input 
                   type="text"
                   name="address.postalCode"
-                  value={newWarehouse.address?.postalCode || ''}
+                  value={newWarehouse.address.postalCode}
                   onChange={handleInputChange}
                   className="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none"
                   placeholder="Enter postal code"
@@ -413,7 +505,7 @@ export default function WarehouseManagement({ userId }: { userId?: string }) {
                 <input 
                   type="number"
                   name="capacity.parcels"
-                  value={newWarehouse.capacity?.parcels || ''}
+                  value={newWarehouse.capacity.parcels || ''}
                   onChange={handleInputChange}
                   className="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none"
                   placeholder="Enter parcel capacity"
@@ -427,31 +519,47 @@ export default function WarehouseManagement({ userId }: { userId?: string }) {
                 <input 
                   type="number"
                   name="capacity.weightLimit"
-                  value={newWarehouse.capacity?.weightLimit || ''}
+                  value={newWarehouse.capacity.weightLimit || ''}
                   onChange={handleInputChange}
                   className="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none"
                   placeholder="Enter weight limit"
                   min="0"
                 />
               </div>
+              <div>
+                <label className="block text-gray-400 text-sm font-medium mb-2">
+                  Status
+                </label>
+                <select
+                  name="status"
+                  value={newWarehouse.status}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none"
+                >
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                  <option value="under_maintenance">Under Maintenance</option>
+                </select>
+              </div>
               <div className="col-span-2 flex gap-4 pt-4 justify-end">
                 <button
                   type="button"
                   className="px-6 py-2 bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200 rounded-lg font-medium transition-colors cursor-pointer"
                   onClick={() => setShowRegisterForm(false)}
+                  disabled={isSubmitting}
                 >
                   Cancel
                 </button>
                 <button 
                   onClick={handleSubmit}
-                  disabled={!isFormValid()}
+                  disabled={!isFormValid() || isSubmitting}
                   className={`px-6 py-2 rounded-lg font-medium transition-all cursor-pointer ${
-                    isFormValid() 
+                    isFormValid() && !isSubmitting
                       ? 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white' 
                       : 'bg-gray-600 text-gray-400 cursor-not-allowed'
                   }`}
                 >
-                  Register Warehouse
+                  {isSubmitting ? 'Creating...' : 'Register Warehouse'}
                 </button>
               </div>
             </div>
@@ -462,8 +570,8 @@ export default function WarehouseManagement({ userId }: { userId?: string }) {
       {/* View/Edit Modal */}
       {activeModal.type && activeModal.warehouse && (
         <div className="fixed inset-0 flex items-center justify-center z-50 px-4">
-          <div onClick={closeModal} className="bg-black opacity-[60%] h-[100%] w-[100%]"></div>
-          <div className="bg-gradient-to-br absolute left-[30vw] top-[15vh] from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+          <div onClick={closeModal} className="absolute inset-0 bg-black opacity-60"></div>
+          <div className="bg-gradient-to-br from-gray-800 to-gray-900 relative border border-gray-700 rounded-xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-white text-xl font-semibold">
                 {activeModal.type === 'VIEW' ? 'Warehouse Details' : 'Edit Warehouse'}
@@ -472,45 +580,62 @@ export default function WarehouseManagement({ userId }: { userId?: string }) {
             </div>
 
             {activeModal.type === 'VIEW' ? (
-              <div className="grid grid-cols-2 gap-4 text-gray-300">
-                <p><strong className="text-white">Name:</strong> {activeModal.warehouse.name}</p>
-                <p><strong className="text-white">Code:</strong> {activeModal.warehouse.code || 'N/A'}</p>
-                <p><strong className="text-white">Street:</strong> {activeModal.warehouse.address?.street || 'N/A'}</p>
-                <p><strong className="text-white">City:</strong> {activeModal.warehouse.address?.city || 'N/A'}</p>
-                <p><strong className="text-white">State:</strong> {activeModal.warehouse.address?.state || 'N/A'}</p>
-                <p><strong className="text-white">Country:</strong> {activeModal.warehouse.address?.country || 'N/A'}</p>
-                <p><strong className="text-white">Postal Code:</strong> {activeModal.warehouse.address?.postalCode || 'N/A'}</p>
-                <p><strong className="text-white">Parcel Capacity:</strong> {activeModal.warehouse.capacity?.parcels || 'N/A'}</p>
-                <p><strong className="text-white">Weight Limit:</strong> {activeModal.warehouse.capacity?.weightLimit ? `${activeModal.warehouse.capacity.weightLimit} kg` : 'N/A'}</p>
-                <p><strong className="text-white">Status:</strong> 
-                  <span className={`ml-2 px-2 py-1 rounded text-sm ${getStatusColor(activeModal.warehouse.status)}`}>
-                    {activeModal.warehouse.status}
-                  </span>
-                </p>
-                <p><strong className="text-white">Current Parcels:</strong> {activeModal.warehouse.receivedParcels?.length || 0}</p>
-                {activeModal.warehouse.createdTimestamp && (
-                  <p><strong className="text-white">Created:</strong> {new Date(activeModal.warehouse.createdTimestamp).toLocaleDateString()}</p>
-                )}
+              <div className="space-y-6">
+                <div className="grid grid-cols-2 gap-4 text-gray-300">
+                  <p><strong className="text-white">Name:</strong> {activeModal.warehouse.name}</p>
+                  <p><strong className="text-white">Code:</strong> {activeModal.warehouse.code || 'N/A'}</p>
+                  <p><strong className="text-white">Street:</strong> {getAddress(activeModal.warehouse.address).street || 'N/A'}</p>
+                  <p><strong className="text-white">City:</strong> {getAddress(activeModal.warehouse.address).city || 'N/A'}</p>
+                  <p><strong className="text-white">State:</strong> {getAddress(activeModal.warehouse.address).state || 'N/A'}</p>
+                  <p><strong className="text-white">Country:</strong> {getAddress(activeModal.warehouse.address).country || 'N/A'}</p>
+                  <p><strong className="text-white">Postal Code:</strong> {getAddress(activeModal.warehouse.address).postalCode || 'N/A'}</p>
+                  <p><strong className="text-white">Parcel Capacity:</strong> {activeModal.warehouse.capacity?.parcels || 'N/A'}</p>
+                  <p><strong className="text-white">Weight Limit:</strong> {activeModal.warehouse.capacity?.weightLimit ? `${activeModal.warehouse.capacity.weightLimit} kg` : 'N/A'}</p>
+                  <p><strong className="text-white">Status:</strong> 
+                    <span className={`ml-2 px-2 py-1 rounded text-sm border ${getStatusColor(activeModal.warehouse.status)}`}>
+                      {activeModal.warehouse.status}
+                    </span>
+                  </p>
+                  <p><strong className="text-white">Current Parcels:</strong> {activeModal.warehouse.receivedParcels?.length || 0}</p>
+                  {activeModal.warehouse.createdTimestamp && (
+                    <p><strong className="text-white">Created:</strong> {new Date(activeModal.warehouse.createdTimestamp).toLocaleDateString()}</p>
+                  )}
+                </div>
                 
-                <div className="col-span-2 flex gap-2 mt-4">
-                  <button
-                    onClick={() => updateWarehouseStatus(activeModal.warehouse!._id, 'active')}
-                    className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-sm transition-colors cursor-pointer"
-                  >
-                    Set Active
-                  </button>
-                  <button
-                    onClick={() => updateWarehouseStatus(activeModal.warehouse!._id, 'inactive')}
-                    className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-sm transition-colors cursor-pointer"
-                  >
-                    Set Inactive
-                  </button>
-                  <button
-                    onClick={() => updateWarehouseStatus(activeModal.warehouse!._id, 'under_maintenance')}
-                    className="px-3 py-1 bg-yellow-600 hover:bg-yellow-700 text-white rounded text-sm transition-colors cursor-pointer"
-                  >
-                    Set Maintenance
-                  </button>
+                <div className="border-t border-gray-700 pt-4">
+                  <h4 className="text-white font-semibold mb-3">Quick Actions</h4>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => updateWarehouseStatus(activeModal.warehouse!._id, 'active')}
+                      className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-sm transition-colors cursor-pointer"
+                    >
+                      Set Active
+                    </button>
+                    <button
+                      onClick={() => updateWarehouseStatus(activeModal.warehouse!._id, 'inactive')}
+                      className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-sm transition-colors cursor-pointer"
+                    >
+                      Set Inactive
+                    </button>
+                    <button
+                      onClick={() => updateWarehouseStatus(activeModal.warehouse!._id, 'under_maintenance')}
+                      className="px-3 py-1 bg-yellow-600 hover:bg-yellow-700 text-white rounded text-sm transition-colors cursor-pointer"
+                    >
+                      Set Maintenance
+                    </button>
+                    <button
+                      onClick={() => setActiveModal({ type: 'EDIT', warehouse: activeModal.warehouse })}
+                      className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm transition-colors cursor-pointer"
+                    >
+                      Edit Details
+                    </button>
+                    <button
+                      onClick={() => deleteWarehouse(activeModal.warehouse!._id)}
+                      className="px-3 py-1 bg-gray-700 hover:bg-gray-600 text-red-400 border border-red-500/30 rounded text-sm transition-colors cursor-pointer"
+                    >
+                      Delete Warehouse
+                    </button>
+                  </div>
                 </div>
               </div>
             ) : (
@@ -535,19 +660,52 @@ export default function WarehouseManagement({ userId }: { userId?: string }) {
                     className="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none"
                   />
                 </div>
+                <div>
+                  <label className="block text-gray-400 text-sm font-medium mb-2">Parcel Capacity</label>
+                  <input
+                    type="number"
+                    name="capacity.parcels"
+                    value={editWarehouse.capacity?.parcels || ''}
+                    onChange={handleEditInputChange}
+                    className="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none"
+                    min="0"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-400 text-sm font-medium mb-2">Weight Limit (kg)</label>
+                  <input
+                    type="number"
+                    name="capacity.weightLimit"
+                    value={editWarehouse.capacity?.weightLimit || ''}
+                    onChange={handleEditInputChange}
+                    className="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none"
+                    min="0"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-gray-400 text-sm font-medium mb-2">Status</label>
+                  <select
+                    name="status"
+                    value={editWarehouse.status || 'active'}
+                    onChange={handleEditInputChange}
+                    className="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none"
+                  >
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                    <option value="under_maintenance">Under Maintenance</option>
+                  </select>
+                </div>
                 <div className="col-span-2 flex gap-4 pt-4 justify-end">
                   <button 
-                    type="button" 
-                    className="px-6 py-2 bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200 rounded-lg font-medium transition-colors cursor-pointer" 
-                    onClick={closeModal}
-                  >
-                    Cancel
-                  </button>
-                  <button 
                     onClick={handleEditSubmit}
-                    className="px-6 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg font-medium transition-all cursor-pointer"
+                    disabled={isSubmitting}
+                    className={`px-6 py-2 rounded-lg font-medium transition-all cursor-pointer ${
+                      isSubmitting
+                        ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                        : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white'
+                    }`}
                   >
-                    Save Changes
+                    {isSubmitting ? 'Saving...' : 'Save Changes'}
                   </button>
                 </div>
               </div>
@@ -558,72 +716,11 @@ export default function WarehouseManagement({ userId }: { userId?: string }) {
 
       {/* Warehouse Cards */}
       {isLoading ? (
-        <div className="text-center text-gray-400">
+        <div className="text-center text-gray-400 py-12">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mx-auto mb-4"></div>
           Loading warehouses...
         </div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-          {warehouses?.map((warehouse) => (
-            <div key={warehouse._id} className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6 transition-all hover:-translate-y-1 hover:border-blue-500 hover:shadow-lg hover:shadow-blue-500/15">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-semibold text-blue-400">
-                  {warehouse.name}
-                </h3>
-                <span className={`px-3 py-1 rounded-full text-sm font-medium border ${getStatusColor(warehouse.status)}`}>
-                  {warehouse.status}
-                </span>
-              </div>
-              
-              <div className="mb-6">
-                <p className="text-gray-400 text-sm mb-2">
-                  <span className="font-medium">Code:</span> {warehouse.code || 'N/A'}
-                </p>
-                <p className="text-gray-400 text-sm mb-3 flex items-center gap-2">
-                  <span>📍</span>
-                  {warehouse.address?.city || 'N/A'}, {warehouse.address?.state || 'N/A'}, {warehouse.address?.country || 'N/A'}
-                </p>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-400">Capacity</span>
-                    <span className="text-white font-medium">
-                      {warehouse.receivedParcels?.length || 0}/{warehouse.capacity?.parcels || 0} parcels
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-700 rounded-full h-2">
-                    <div
-                      className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full transition-all"
-                      style={{
-                        width: `${warehouse.capacity?.parcels ? Math.min(((warehouse.receivedParcels?.length || 0) / warehouse.capacity.parcels) * 100, 100) : 0}%`,
-                      }}
-                    ></div>
-                  </div>
-                  <div className="text-right text-xs text-gray-400">
-                    {warehouse.capacity?.parcels ? Math.round(((warehouse.receivedParcels?.length || 0) / warehouse.capacity.parcels) * 100) : 0}% occupied
-                  </div>
-                </div>
-              </div>
-              
-              <div className="flex gap-2">
-                <button 
-                  className="px-4 py-2 cursor-pointer bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium transition-colors"
-                  onClick={() => openModal('VIEW', warehouse)}
-                >
-                  View Details
-                </button>
-                <button 
-                  className="px-4 cursor-pointer py-2 bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200 rounded-lg text-xs font-medium transition-colors"
-                  onClick={() => openModal('EDIT', warehouse)}
-                >
-                  Edit
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {warehouses.length === 0 && !isLoading && (
+      ) : warehouses.length === 0 ? (
         <div className="text-center py-12">
           <div className="text-gray-400 text-lg mb-4">No warehouses found</div>
           <p className="text-gray-500 mb-6">Get started by registering your first warehouse</p>
@@ -634,7 +731,82 @@ export default function WarehouseManagement({ userId }: { userId?: string }) {
             Register Warehouse
           </button>
         </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+          {warehouses.map((warehouse) => {
+            const address = getAddress(warehouse.address);
+            const currentParcels = warehouse.receivedParcels?.length || 0;
+            const capacity = warehouse.capacity?.parcels || 0;
+            const utilizationPercent = capacity > 0 ? Math.round((currentParcels / capacity) * 100) : 0;
+
+            return (
+              <div key={warehouse._id} className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6 transition-all hover:-translate-y-1 hover:border-blue-500 hover:shadow-lg hover:shadow-blue-500/15">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-xl font-semibold text-blue-400">
+                    {warehouse.name}
+                  </h3>
+                  <span className={`px-3 py-1 rounded-full text-sm font-medium border ${getStatusColor(warehouse.status)}`}>
+                    {warehouse.status.replace('_', ' ')}
+                  </span>
+                </div>
+                
+                <div className="mb-6">
+                  <p className="text-gray-400 text-sm mb-2">
+                    <span className="font-medium text-white">Code:</span> {warehouse.code || 'N/A'}
+                  </p>
+                  <p className="text-gray-400 text-sm mb-3 flex items-center gap-2">
+                    <span>📍</span>
+                    {address.city || 'N/A'}, {address.state || 'N/A'}, {address.country || 'N/A'}
+                  </p>
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-400">Capacity</span>
+                      <span className="text-white font-medium">
+                        {currentParcels}/{capacity} parcels
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-700 rounded-full h-2">
+                      <div
+                        className={`h-2 rounded-full transition-all ${
+                          utilizationPercent >= 90 
+                            ? 'bg-gradient-to-r from-red-500 to-red-600'
+                            : utilizationPercent >= 70
+                            ? 'bg-gradient-to-r from-yellow-500 to-yellow-600'
+                            : 'bg-gradient-to-r from-blue-500 to-blue-600'
+                        }`}
+                        style={{ width: `${Math.min(utilizationPercent, 100)}%` }}
+                      ></div>
+                    </div>
+                    <div className="text-right text-xs text-gray-400">
+                      {utilizationPercent}% occupied
+                    </div>
+                  </div>
+                  {warehouse.capacity?.weightLimit && (
+                    <p className="text-gray-400 text-xs mt-2">
+                      Weight limit: {warehouse.capacity.weightLimit} kg
+                    </p>
+                  )}
+                </div>
+                
+                <div className="flex gap-2">
+                  <button 
+                    className="flex-1 px-4 py-2 cursor-pointer bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium transition-colors"
+                    onClick={() => openModal('VIEW', warehouse)}
+                  >
+                    View Details
+                  </button>
+                  <button 
+                    className="flex-1 px-4 cursor-pointer py-2 bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200 rounded-lg text-xs font-medium transition-colors"
+                    onClick={() => openModal('EDIT', warehouse)}
+                  >
+                    Edit
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       )}
     </div>
   );
-}
+}    
