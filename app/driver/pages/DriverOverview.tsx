@@ -259,7 +259,7 @@ const DriverOverview = () => {
         {[
           { icon: '📦', value: stats.todayDeliveries, label: "Today's Deliveries" },
           { icon: '🛣️', value: `${stats.distanceTraveled} km`, label: 'Distance Traveled' },
-          { icon: '💰', value: `$${stats.todayEarnings}`, label: "Today's Earnings" },
+          { icon: '💰', value: `Rs. ${stats.todayEarnings}`, label: "Today's Earnings" },
           { icon: '⭐', value: `${stats.rating}/5`, label: 'Rating' },
         ].map((metric, idx) => (
           <div
