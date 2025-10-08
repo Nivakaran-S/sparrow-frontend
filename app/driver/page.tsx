@@ -11,6 +11,7 @@ import CurrentDeliveries from "./pages/CurrentDeliveries";
 import MyRoutes from "./pages/MyRoutes";
 import DriverOverview from "./pages/DriverOverview";
 import PerformanceAnalytics from "./pages/PerformanceAnalytics";
+import DriverProfile from "./pages/DriverProfile";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api-gateway-nine-orpin.vercel.app";
 
@@ -98,7 +99,8 @@ export default function DriverDashboard() {
 
         {/* Main Content */}
         <main className="p-6 flex-1 ml-[14vw] mt-[12vh] bg-[#1D1D1D] overflow-y-auto">
-          {activeTab === "overview" && <DriverOverview isOnline={isOnline} />}
+          {activeTab === "overview" && <DriverOverview  />}
+          {activeTab === "profile" && <DriverProfile />}
           {activeTab === "routes" && <MyRoutes />}
           {activeTab === "current" && <CurrentDeliveries />}
           {activeTab === "navigation" && <GPSNavigation />}
