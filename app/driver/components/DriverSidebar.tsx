@@ -66,16 +66,7 @@ const DriverSidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
               >
                 <span className="font-medium">Current Deliveries</span>
               </button>
-              <button
-                className={`w-full flex cursor-pointer items-center rounded-[10px] gap-3 px-5 py-3 text-left transition-all border-l-4 ${
-                  activeTab === "navigation"
-                    ? "bg-gray-800 text-blue-400 border-l-blue-400"
-                    : "text-gray-300 border-l-transparent hover:bg-gray-800 hover:text-blue-400 hover:border-l-blue-400"
-                }`}
-                onClick={() => setActiveTab("navigation")}
-              >
-                <span className="font-medium">GPS Navigation</span>
-              </button>
+              
               
             </div>
           </div>
