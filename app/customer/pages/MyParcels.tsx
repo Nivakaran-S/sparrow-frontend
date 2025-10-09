@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api-gateway-nine-orpin.vercel.app/api/parcels";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api-gateway-nine-orpin.vercel.app";
 
 const MyParcels = () => {
   const [parcels, setParcels] = useState<any[]>([]);
@@ -22,7 +22,7 @@ const MyParcels = () => {
 
   const fetchParcels = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/parcels`, {
+      const response = await fetch(`${API_BASE_URL}/api/parcels/api/parcels`, {
         credentials: 'include',
       });
       
@@ -47,7 +47,8 @@ const MyParcels = () => {
     if (searchQuery) {
       filtered = filtered.filter(p => 
         p.trackingNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.receiver?.name?.toLowerCase().includes(searchQuery.toLowerCase())
+        p.receiver?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.pricingId?.parcelType?.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
 
@@ -59,6 +60,7 @@ const MyParcels = () => {
       created: "bg-gray-500",
       at_warehouse: "bg-yellow-500",
       consolidated: "bg-blue-500",
+      assigned_to_driver: "bg-cyan-500",
       in_transit: "bg-purple-500",
       out_for_delivery: "bg-orange-500",
       delivered: "bg-green-500",
@@ -78,6 +80,7 @@ const MyParcels = () => {
     { value: "created", label: "Created" },
     { value: "at_warehouse", label: "At Warehouse" },
     { value: "consolidated", label: "Consolidated" },
+    { value: "assigned_to_driver", label: "Assigned to Driver" },
     { value: "in_transit", label: "In Transit" },
     { value: "out_for_delivery", label: "Out for Delivery" },
     { value: "delivered", label: "Delivered" },
@@ -113,7 +116,7 @@ const MyParcels = () => {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by tracking number or receiver..."
+              placeholder="Search by tracking number, receiver, or parcel type..."
               className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500"
             />
           </div>
@@ -169,6 +172,7 @@ const MyParcels = () => {
               <thead className="bg-gray-800 border-b border-gray-700">
                 <tr>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-gray-400">Tracking Number</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-400">Parcel Type</th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-gray-400">Receiver</th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-gray-400">Weight</th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-gray-400">Status</th>
@@ -184,6 +188,11 @@ const MyParcels = () => {
                         <span className="text-lg">📦</span>
                         <span className="text-white font-mono font-semibold">{parcel.trackingNumber}</span>
                       </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="text-blue-400 font-medium">
+                        {parcel.pricingId?.parcelType || 'N/A'}
+                      </span>
                     </td>
                     <td className="px-6 py-4">
                       <div>
@@ -250,10 +259,38 @@ const MyParcels = () => {
                     {getStatusLabel(selectedParcel.status)}
                   </span>
                 </div>
-                <p className="text-gray-400 text-sm">
-                  Created: {new Date(selectedParcel.createdTimeStamp).toLocaleString()}
-                </p>
+                <div className="grid grid-cols-2 gap-4 mt-4">
+                  <div>
+                    <p className="text-gray-400 text-sm">Parcel Type</p>
+                    <p className="text-blue-400 font-semibold">{selectedParcel.pricingId?.parcelType || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400 text-sm">Created</p>
+                    <p className="text-white">{new Date(selectedParcel.createdTimeStamp).toLocaleString()}</p>
+                  </div>
+                </div>
               </div>
+
+              {/* Pricing Information */}
+              {selectedParcel.pricingId && (
+                <div className="bg-blue-900/20 p-4 rounded-lg border border-blue-700">
+                  <h4 className="text-blue-400 font-semibold mb-3">Pricing Details</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                    <div>
+                      <p className="text-gray-400">Base Price</p>
+                      <p className="text-white font-medium">Rs. {selectedParcel.pricingId.basePrice}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-400">Per Km</p>
+                      <p className="text-white font-medium">Rs. {selectedParcel.pricingId.pricePerKm}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-400">Per Kg</p>
+                      <p className="text-white font-medium">Rs. {selectedParcel.pricingId.pricePerKg}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Sender & Receiver */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -292,6 +329,14 @@ const MyParcels = () => {
                   </div>
                 </div>
               </div>
+
+              {/* Driver Assignment */}
+              {selectedParcel.assignedDriver && (
+                <div className="bg-cyan-900/20 p-4 rounded-lg border border-cyan-700">
+                  <h4 className="text-cyan-400 font-semibold mb-3">Assigned Driver</h4>
+                  <p className="text-white font-medium">{selectedParcel.assignedDriver.userName || 'N/A'}</p>
+                </div>
+              )}
 
               {/* Status History */}
               {selectedParcel.statusHistory && selectedParcel.statusHistory.length > 0 && (

@@ -1,13 +1,26 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api-gateway-nine-orpin.vercel.app/api/parcels";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api-gateway-nine-orpin.vercel.app";
+
+interface PricingType {
+  _id: string;
+  parcelType: string;
+  basePrice: number;
+  pricePerKm: number;
+  pricePerKg: number;
+  urgentDeliveryMultiplier: number;
+  isActive: boolean;
+}
 
 const NewShipment = () => {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [createdParcel, setCreatedParcel] = useState<any>(null);
   const [paymentProcessing, setPaymentProcessing] = useState(false);
+  const [pricingTypes, setPricingTypes] = useState<PricingType[]>([]);
+  const [loadingPricing, setLoadingPricing] = useState(true);
+  const [calculatedPrice, setCalculatedPrice] = useState<number>(0);
   
   const [shipmentData, setShipmentData] = useState({
     senderName: "",
@@ -18,6 +31,7 @@ const NewShipment = () => {
     receiverPhone: "",
     receiverEmail: "",
     receiverAddress: "",
+    pricingId: "",
     weight: "",
     weightUnit: "kg",
     length: "",
@@ -27,10 +41,67 @@ const NewShipment = () => {
     description: "",
     value: "",
     specialInstructions: "",
-    paymentMethod: "credit_card"
+    paymentMethod: "credit_card",
+    distance: "10",
+    isUrgent: false
   });
 
-  const handleInputChange = (field: string, value: string) => {
+  useEffect(() => {
+    fetchPricingTypes();
+  }, []);
+
+  useEffect(() => {
+    if (shipmentData.pricingId && shipmentData.weight && shipmentData.distance) {
+      calculatePrice();
+    }
+  }, [shipmentData.pricingId, shipmentData.weight, shipmentData.distance, shipmentData.isUrgent]);
+
+  const fetchPricingTypes = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/pricing?isActive=true`, {
+        credentials: 'include',
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setPricingTypes(data.data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching pricing types:', error);
+    } finally {
+      setLoadingPricing(false);
+    }
+  };
+
+  const calculatePrice = async () => {
+    try {
+      const selectedPricing = pricingTypes.find(p => p._id === shipmentData.pricingId);
+      if (!selectedPricing) return;
+
+      const response = await fetch(`${API_BASE_URL}/api/pricing/calculate`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          parcelType: selectedPricing.parcelType,
+          distance: parseFloat(shipmentData.distance),
+          weight: parseFloat(shipmentData.weight),
+          isUrgent: shipmentData.isUrgent
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setCalculatedPrice(data.data.totalPrice);
+      }
+    } catch (error) {
+      console.error('Error calculating price:', error);
+    }
+  };
+
+  const handleInputChange = (field: string, value: string | boolean) => {
     setShipmentData(prev => ({
       ...prev,
       [field]: value
@@ -41,26 +112,13 @@ const NewShipment = () => {
     return 'TRK' + Date.now().toString().slice(-8) + Math.random().toString(36).substr(2, 4).toUpperCase();
   };
 
-  const calculateShippingCost = () => {
-    // Basic shipping cost calculation
-    const weight = parseFloat(shipmentData.weight) || 0;
-    const volume = (parseFloat(shipmentData.length) || 0) * 
-                   (parseFloat(shipmentData.width) || 0) * 
-                   (parseFloat(shipmentData.height) || 0);
-    
-    const baseCost = 10;
-    const weightCost = weight * 2;
-    const volumeCost = volume * 0.01;
-    
-    return (baseCost + weightCost + volumeCost).toFixed(2);
-  };
-
   const handleSubmit = async () => {
     setLoading(true);
     try {
       const trackingNumber = generateTrackingNumber();
       const parcelPayload = {
         trackingNumber,
+        pricingId: shipmentData.pricingId,
         weight: {
           value: parseFloat(shipmentData.weight),
           unit: shipmentData.weightUnit
@@ -98,7 +156,7 @@ const NewShipment = () => {
       if (response.ok) {
         const result = await response.json();
         setCreatedParcel(result.data);
-        setStep(5); // Move to payment step
+        setStep(5);
         setLoading(false);
       } else {
         const error = await response.json();
@@ -124,8 +182,7 @@ const NewShipment = () => {
   const handlePayment = async () => {
     setPaymentProcessing(true);
     try {
-      // Get user info from cookie check
-      const userResponse = await fetch(`https://api-gateway-nine-orpin.vercel.app/check-cookie`, {
+      const userResponse = await fetch(`${API_BASE_URL}/check-cookie`, {
         credentials: 'include'
       });
       
@@ -136,9 +193,8 @@ const NewShipment = () => {
       }
 
       const userData = await userResponse.json();
-      const shippingCost = parseFloat(calculateShippingCost());
+      const shippingCost = calculatedPrice;
 
-      // Create payment
       const paymentPayload = {
         user: userData.id,
         parcels: [createdParcel._id],
@@ -159,7 +215,7 @@ const NewShipment = () => {
       if (paymentResponse.ok) {
         const paymentResult = await paymentResponse.json();
         
-        // Create invoice after successful payment
+        const selectedPricing = pricingTypes.find(p => p._id === shipmentData.pricingId);
         const invoicePayload = {
           invoiceNumber: generateInvoiceNumber(),
           user: userData.id,
@@ -167,7 +223,7 @@ const NewShipment = () => {
           parcels: [createdParcel._id],
           items: [
             {
-              description: `Parcel Shipping - ${shipmentData.weight} ${shipmentData.weightUnit}`,
+              description: `Parcel Shipping - ${selectedPricing?.parcelType} (${shipmentData.weight} ${shipmentData.weightUnit})`,
               quantity: 1,
               unitPrice: shippingCost,
               total: shippingCost
@@ -195,12 +251,10 @@ const NewShipment = () => {
           const invoiceResult = await invoiceResponse.json();
           alert(`Payment successful! Your shipment has been created.\n\nTracking Number: ${createdParcel.trackingNumber}\nPayment ID: ${paymentResult.data._id}\nInvoice Number: ${invoiceResult.data.invoiceNumber}`);
         } else {
-          // Payment succeeded but invoice creation failed
           console.error('Invoice creation failed, but payment was successful');
           alert(`Payment successful! Your shipment has been created.\n\nTracking Number: ${createdParcel.trackingNumber}\nPayment ID: ${paymentResult.data._id}\n\nNote: Invoice generation pending.`);
         }
         
-        // Reset form
         setShipmentData({
           senderName: "",
           senderPhone: "",
@@ -210,6 +264,7 @@ const NewShipment = () => {
           receiverPhone: "",
           receiverEmail: "",
           receiverAddress: "",
+          pricingId: "",
           weight: "",
           weightUnit: "kg",
           length: "",
@@ -219,9 +274,12 @@ const NewShipment = () => {
           description: "",
           value: "",
           specialInstructions: "",
-          paymentMethod: "credit_card"
+          paymentMethod: "credit_card",
+          distance: "10",
+          isUrgent: false
         });
         setCreatedParcel(null);
+        setCalculatedPrice(0);
         setStep(1);
       } else {
         const error = await paymentResponse.json();
@@ -250,7 +308,7 @@ const NewShipment = () => {
       case 2:
         return shipmentData.receiverName && shipmentData.receiverPhone && shipmentData.receiverAddress;
       case 3:
-        return shipmentData.weight && shipmentData.length && shipmentData.width && shipmentData.height;
+        return shipmentData.pricingId && shipmentData.weight && shipmentData.length && shipmentData.width && shipmentData.height && shipmentData.distance;
       default:
         return true;
     }
@@ -403,6 +461,28 @@ const NewShipment = () => {
           <div className="space-y-6">
             <h3 className="text-xl font-bold text-white mb-6">Parcel Details</h3>
             
+            <div>
+              <label className="block text-gray-400 text-sm font-medium mb-2">Parcel Type *</label>
+              {loadingPricing ? (
+                <div className="px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-gray-400">
+                  Loading pricing types...
+                </div>
+              ) : (
+                <select
+                  value={shipmentData.pricingId}
+                  onChange={(e) => handleInputChange('pricingId', e.target.value)}
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500"
+                >
+                  <option value="">Select parcel type</option>
+                  {pricingTypes.map((pricing) => (
+                    <option key={pricing._id} value={pricing._id}>
+                      {pricing.parcelType} - Base: Rs.{pricing.basePrice} | Per Km: Rs.{pricing.pricePerKm} | Per Kg: Rs.{pricing.pricePerKg}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-gray-400 text-sm font-medium mb-2">Weight *</label>
@@ -426,6 +506,18 @@ const NewShipment = () => {
                     <option value="oz">oz</option>
                   </select>
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-gray-400 text-sm font-medium mb-2">Distance (km) *</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  value={shipmentData.distance}
+                  onChange={(e) => handleInputChange('distance', e.target.value)}
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500"
+                  placeholder="10"
+                />
               </div>
             </div>
 
@@ -466,6 +558,28 @@ const NewShipment = () => {
                 <option value="in">in</option>
               </select>
             </div>
+
+            <div className="flex items-center gap-3 bg-gray-800/50 p-4 rounded-lg border border-gray-700">
+              <input
+                type="checkbox"
+                id="isUrgent"
+                checked={shipmentData.isUrgent}
+                onChange={(e) => handleInputChange('isUrgent', e.target.checked)}
+                className="w-5 h-5 rounded border-gray-600 text-blue-600 focus:ring-blue-500 focus:ring-offset-gray-800"
+              />
+              <label htmlFor="isUrgent" className="text-white font-medium cursor-pointer">
+                Urgent Delivery (Additional charges apply)
+              </label>
+            </div>
+
+            {calculatedPrice > 0 && (
+              <div className="bg-blue-900/20 border border-blue-700 p-4 rounded-lg">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-300">Estimated Shipping Cost:</span>
+                  <span className="text-2xl font-bold text-blue-400">Rs. {calculatedPrice.toFixed(2)}</span>
+                </div>
+              </div>
+            )}
 
             <div>
               <label className="block text-gray-400 text-sm font-medium mb-2">Description</label>
@@ -515,8 +629,13 @@ const NewShipment = () => {
 
               <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
                 <h4 className="text-blue-400 font-semibold mb-3">Parcel Details</h4>
+                <p className="text-white">Type: {pricingTypes.find(p => p._id === shipmentData.pricingId)?.parcelType}</p>
                 <p className="text-white">Weight: {shipmentData.weight} {shipmentData.weightUnit}</p>
                 <p className="text-white">Dimensions: {shipmentData.length} x {shipmentData.width} x {shipmentData.height} {shipmentData.dimensionUnit}</p>
+                <p className="text-white">Distance: {shipmentData.distance} km</p>
+                {shipmentData.isUrgent && (
+                  <p className="text-yellow-400 font-semibold mt-2">⚡ Urgent Delivery</p>
+                )}
                 {shipmentData.description && (
                   <p className="text-gray-400 text-sm mt-2">Description: {shipmentData.description}</p>
                 )}
@@ -525,7 +644,7 @@ const NewShipment = () => {
               <div className="bg-green-900/20 border border-green-700 p-4 rounded-lg">
                 <div className="flex justify-between items-center">
                   <span className="text-gray-300">Estimated Shipping Cost:</span>
-                  <span className="text-2xl font-bold text-green-400">Rs. {calculateShippingCost()}</span>
+                  <span className="text-2xl font-bold text-green-400">Rs. {calculatedPrice.toFixed(2)}</span>
                 </div>
               </div>
             </div>
@@ -540,7 +659,7 @@ const NewShipment = () => {
             <div className="bg-blue-900/20 border border-blue-700 p-6 rounded-lg mb-6">
               <div className="flex justify-between items-center mb-4">
                 <span className="text-lg text-gray-300">Total Amount:</span>
-                <span className="text-3xl font-bold text-blue-400">Rs. {calculateShippingCost()}</span>
+                <span className="text-3xl font-bold text-blue-400">Rs. {calculatedPrice.toFixed(2)}</span>
               </div>
               <p className="text-sm text-gray-400">Tracking Number: {createdParcel?.trackingNumber}</p>
             </div>
