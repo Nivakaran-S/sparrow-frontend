@@ -1,60 +1,424 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { Package, Calendar, MapPin, DollarSign, Star, Download, TrendingUp } from "lucide-react";
+
+const API_BASE_URL = process.env.REACT_APP_API_URL || "https://api-gateway-nine-orpin.vercel.app";
+
+interface Delivery {
+  _id: string;
+  consolidationId?: {
+    referenceCode: string;
+    masterTrackingNumber?: string;
+    parcels?: any[];
+  };
+  status: string;
+  startTime?: string;
+  endTime?: string;
+  startLocation?: any;
+  endLocation?: any;
+  locationHistory?: any[];
+  notes?: string;
+  createdTimestamp: string;
+}
+
+interface DailyStats {
+  date: string;
+  deliveries: number;
+  distance: number;
+  earnings: number;
+  avgRating: number;
+  deliveryData: Delivery[];
+}
 
 const DeliveryHistory = () => {
-  const [history] = useState([
-    { date: "2024-01-20", deliveries: 12, distance: "156 km", earnings: "$245.50", rating: 4.9 },
-    { date: "2024-01-19", deliveries: 15, distance: "189 km", earnings: "$298.75", rating: 4.8 },
-    { date: "2024-01-18", deliveries: 10, distance: "134 km", earnings: "$198.25", rating: 4.7 },
-    { date: "2024-01-17", deliveries: 14, distance: "167 km", earnings: "$267.80", rating: 4.8 },
-  ]);
+  const [history, setHistory] = useState<DailyStats[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [driverId, setDriverId] = useState<string | null>(null);
+  const [timeFilter, setTimeFilter] = useState("7"); // days
+  const [selectedDay, setSelectedDay] = useState<DailyStats | null>(null);
+
+  useEffect(() => {
+    checkAuth();
+  }, []);
+
+  useEffect(() => {
+    if (driverId) {
+      fetchDeliveryHistory();
+    }
+  }, [driverId, timeFilter]);
+
+  const checkAuth = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/check-cookie`, {
+        credentials: "include",
+      });
+
+      if (!response.ok) throw new Error("Authentication failed");
+
+      const data = await response.json();
+      if (data.role === "Driver") {
+        setDriverId(data.id);
+      } else {
+        setError("Access denied. Driver role required.");
+      }
+    } catch (err) {
+      console.error("Auth check failed:", err);
+      setError("Authentication failed");
+      setLoading(false);
+    }
+  };
+
+  const fetchDeliveryHistory = async () => {
+    if (!driverId) return;
+
+    try {
+      setLoading(true);
+      const response = await fetch(
+        `${API_BASE_URL}/api/consolidations/api/deliveries/driver/${driverId}`,
+        { credentials: "include" }
+      );
+
+      if (!response.ok) throw new Error("Failed to fetch delivery history");
+
+      const result = await response.json();
+
+      if (result.success) {
+        const completedDeliveries = result.data.filter(
+          (d: Delivery) => d.status === "completed"
+        );
+        
+        const dailyStats = processDeliveryHistory(completedDeliveries);
+        setHistory(dailyStats);
+      }
+    } catch (err: any) {
+      console.error("Error fetching delivery history:", err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const processDeliveryHistory = (deliveries: Delivery[]): DailyStats[] => {
+    const now = new Date();
+    const daysAgo = parseInt(timeFilter);
+    const startDate = new Date(now.getTime() - daysAgo * 24 * 60 * 60 * 1000);
+
+    // Filter deliveries within date range
+    const filteredDeliveries = deliveries.filter((d) => {
+      const deliveryDate = new Date(d.endTime || d.createdTimestamp);
+      return deliveryDate >= startDate;
+    });
+
+    // Group by date
+    const groupedByDate = filteredDeliveries.reduce((acc: Record<string, Delivery[]>, delivery) => {
+      const date = new Date(delivery.endTime || delivery.createdTimestamp).toLocaleDateString();
+      if (!acc[date]) acc[date] = [];
+      acc[date].push(delivery);
+      return acc;
+    }, {});
+
+    // Calculate stats for each day
+    return Object.entries(groupedByDate)
+      .map(([date, dayDeliveries]) => {
+        let totalDistance = 0;
+
+        dayDeliveries.forEach((delivery) => {
+          if (delivery.locationHistory && delivery.locationHistory.length > 1) {
+            for (let i = 1; i < delivery.locationHistory.length; i++) {
+              const loc1 = delivery.locationHistory[i - 1];
+              const loc2 = delivery.locationHistory[i];
+              if (loc1.latitude && loc1.longitude && loc2.latitude && loc2.longitude) {
+                totalDistance += calculateDistance(
+                  loc1.latitude,
+                  loc1.longitude,
+                  loc2.latitude,
+                  loc2.longitude
+                );
+              }
+            }
+          }
+        });
+
+        const earnings = dayDeliveries.length * 5 + totalDistance * 0.45;
+
+        return {
+          date,
+          deliveries: dayDeliveries.length,
+          distance: Math.round(totalDistance * 10) / 10,
+          earnings: Math.round(earnings * 100) / 100,
+          avgRating: 4.8, // Default rating, can be enhanced with actual ratings
+          deliveryData: dayDeliveries,
+        };
+      })
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  };
+
+  const calculateDistance = (
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number
+  ): number => {
+    const R = 6371;
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(toRad(lat1)) *
+        Math.cos(toRad(lat2)) *
+        Math.sin(dLon / 2) ** 2;
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
+
+  const toRad = (deg: number): number => deg * (Math.PI / 180);
+
+  const exportData = () => {
+    const csvContent = [
+      ["Date", "Deliveries", "Distance (km)", "Earnings (Rs.)", "Rating"],
+      ...history.map((day) => [
+        day.date,
+        day.deliveries,
+        day.distance,
+        day.earnings,
+        day.avgRating,
+      ]),
+    ]
+      .map((row) => row.join(","))
+      .join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `delivery-history-${new Date().toISOString().split("T")[0]}.csv`;
+    a.click();
+  };
+
+  const getTotalStats = () => {
+    return {
+      totalDeliveries: history.reduce((sum, day) => sum + day.deliveries, 0),
+      totalDistance: history.reduce((sum, day) => sum + day.distance, 0),
+      totalEarnings: history.reduce((sum, day) => sum + day.earnings, 0),
+      avgRating: history.length > 0
+        ? history.reduce((sum, day) => sum + day.avgRating, 0) / history.length
+        : 0,
+    };
+  };
+
+  if (loading) {
+    return (
+      <div className="max-w-6xl mx-auto">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+            <div className="text-gray-400 text-lg">Loading delivery history...</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-6xl mx-auto">
+        <div className="bg-red-500/10 border border-red-500 rounded-lg p-6">
+          <h3 className="text-red-400 font-semibold mb-2">Error</h3>
+          <p className="text-gray-300">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  const totalStats = getTotalStats();
 
   return (
     <div className="max-w-6xl mx-auto">
       <h2 className="text-3xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent mb-8">
         Delivery History
       </h2>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-4">
+          <div className="flex items-center gap-3 mb-2">
+            <Package className="w-5 h-5 text-blue-400" />
+            <span className="text-gray-400 text-sm">Total Deliveries</span>
+          </div>
+          <div className="text-2xl font-bold text-white">{totalStats.totalDeliveries}</div>
+        </div>
+        <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-4">
+          <div className="flex items-center gap-3 mb-2">
+            <MapPin className="w-5 h-5 text-green-400" />
+            <span className="text-gray-400 text-sm">Total Distance</span>
+          </div>
+          <div className="text-2xl font-bold text-white">{totalStats.totalDistance.toFixed(1)} km</div>
+        </div>
+        <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-4">
+          <div className="flex items-center gap-3 mb-2">
+            <DollarSign className="w-5 h-5 text-yellow-400" />
+            <span className="text-gray-400 text-sm">Total Earnings</span>
+          </div>
+          <div className="text-2xl font-bold text-white">Rs. {totalStats.totalEarnings.toFixed(2)}</div>
+        </div>
+        <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-4">
+          <div className="flex items-center gap-3 mb-2">
+            <Star className="w-5 h-5 text-purple-400" />
+            <span className="text-gray-400 text-sm">Avg Rating</span>
+          </div>
+          <div className="text-2xl font-bold text-white">{totalStats.avgRating.toFixed(1)}/5</div>
+        </div>
+      </div>
+
+      {/* Filters */}
       <div className="flex gap-4 mb-6">
-        <select className="bg-gray-800 border border-gray-700 text-white p-2 rounded-lg focus:border-blue-500 outline-none">
-          <option>Last 7 Days</option>
-          <option>Last 30 Days</option>
-          <option>Last 3 Months</option>
+        <select
+          value={timeFilter}
+          onChange={(e) => setTimeFilter(e.target.value)}
+          className="bg-gray-800 border border-gray-700 text-white px-4 py-2 rounded-lg focus:border-blue-500 outline-none"
+        >
+          <option value="7">Last 7 Days</option>
+          <option value="30">Last 30 Days</option>
+          <option value="90">Last 3 Months</option>
         </select>
-        <button className="bg-gray-600 text-gray-200 px-4 py-2 rounded-lg border border-gray-500 hover:bg-gray-500 hover:-translate-y-1 transition-all">
+        <button
+          onClick={exportData}
+          className="bg-gray-600 text-gray-200 px-4 py-2 rounded-lg border border-gray-500 hover:bg-gray-500 hover:-translate-y-1 transition-all flex items-center gap-2"
+        >
+          <Download className="w-4 h-4" />
           Export Data
         </button>
       </div>
-      <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl overflow-hidden">
-        <table className="w-full text-left">
-          <thead>
-            <tr className="bg-gray-700">
-              <th className="p-4 text-white font-semibold">Date</th>
-              <th className="p-4 text-white font-semibold">Deliveries</th>
-              <th className="p-4 text-white font-semibold">Distance</th>
-              <th className="p-4 text-white font-semibold">Earnings</th>
-              <th className="p-4 text-white font-semibold">Rating</th>
-              <th className="p-4 text-white font-semibold">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {history.map((day, index) => (
-              <tr key={index} className="border-b border-gray-700 hover:bg-blue-500/5">
-                <td className="p-4 text-blue-400">{day.date}</td>
-                <td className="p-4 text-gray-400">{day.deliveries}</td>
-                <td className="p-4 text-gray-400">{day.distance}</td>
-                <td className="p-4 text-blue-400">{day.earnings}</td>
-                <td className="p-4 text-gray-400">⭐ {day.rating}</td>
-                <td className="p-4">
-                  <button className="bg-blue-600 text-white px-3 py-1 rounded-lg hover:bg-blue-700 transition-all">
-                    View Details
-                  </button>
-                </td>
+
+      {/* History Table */}
+      {history.length === 0 ? (
+        <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-12 text-center">
+          <Calendar className="w-16 h-16 mx-auto mb-4 text-gray-600" />
+          <h3 className="text-xl font-semibold text-gray-300 mb-2">No Delivery History</h3>
+          <p className="text-gray-400">No completed deliveries found in the selected period.</p>
+        </div>
+      ) : (
+        <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl overflow-hidden">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="bg-gray-700">
+                <th className="p-4 text-white font-semibold">Date</th>
+                <th className="p-4 text-white font-semibold">Deliveries</th>
+                <th className="p-4 text-white font-semibold">Distance</th>
+                <th className="p-4 text-white font-semibold">Earnings</th>
+                <th className="p-4 text-white font-semibold">Rating</th>
+                <th className="p-4 text-white font-semibold">Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {history.map((day, index) => (
+                <tr key={index} className="border-b border-gray-700 hover:bg-blue-500/5 transition-colors">
+                  <td className="p-4 text-blue-400 flex items-center gap-2">
+                    <Calendar className="w-4 h-4" />
+                    {day.date}
+                  </td>
+                  <td className="p-4 text-gray-400">{day.deliveries}</td>
+                  <td className="p-4 text-gray-400">{day.distance} km</td>
+                  <td className="p-4 text-blue-400">Rs. {day.earnings.toFixed(2)}</td>
+                  <td className="p-4 text-gray-400 flex items-center gap-1">
+                    <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
+                    {day.avgRating}
+                  </td>
+                  <td className="p-4">
+                    <button
+                      onClick={() => setSelectedDay(day)}
+                      className="bg-blue-600 text-white px-3 py-1 rounded-lg hover:bg-blue-700 transition-all text-sm"
+                    >
+                      View Details
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Detail Modal */}
+      {selectedDay && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-2xl font-bold text-white">
+                Deliveries on {selectedDay.date}
+              </h3>
+              <button
+                onClick={() => setSelectedDay(null)}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              <div className="bg-gray-900/50 rounded-lg p-4">
+                <div className="text-gray-400 text-sm mb-1">Total Deliveries</div>
+                <div className="text-white text-xl font-semibold">{selectedDay.deliveries}</div>
+              </div>
+              <div className="bg-gray-900/50 rounded-lg p-4">
+                <div className="text-gray-400 text-sm mb-1">Total Distance</div>
+                <div className="text-white text-xl font-semibold">{selectedDay.distance} km</div>
+              </div>
+              <div className="bg-gray-900/50 rounded-lg p-4">
+                <div className="text-gray-400 text-sm mb-1">Earnings</div>
+                <div className="text-white text-xl font-semibold">Rs. {selectedDay.earnings.toFixed(2)}</div>
+              </div>
+              <div className="bg-gray-900/50 rounded-lg p-4">
+                <div className="text-gray-400 text-sm mb-1">Avg Rating</div>
+                <div className="text-white text-xl font-semibold">{selectedDay.avgRating}/5</div>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <h4 className="text-white font-semibold mb-3">Delivery Details</h4>
+              {selectedDay.deliveryData.map((delivery, idx) => (
+                <div
+                  key={delivery._id}
+                  className="bg-gray-900/50 border border-gray-700 rounded-lg p-4"
+                >
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <div className="text-blue-400 font-semibold">
+                        {delivery.consolidationId?.masterTrackingNumber || `DEL-${delivery._id.slice(-6)}`}
+                      </div>
+                      <div className="text-gray-500 text-sm">
+                        Ref: {delivery.consolidationId?.referenceCode || "N/A"}
+                      </div>
+                    </div>
+                    <span className="text-green-400 text-sm">Completed</span>
+                  </div>
+                  <div className="text-gray-400 text-sm">
+                    Parcels: {delivery.consolidationId?.parcels?.length || 0}
+                  </div>
+                  {delivery.startTime && delivery.endTime && (
+                    <div className="text-gray-400 text-sm mt-2">
+                      Duration:{" "}
+                      {Math.round(
+                        (new Date(delivery.endTime).getTime() -
+                          new Date(delivery.startTime).getTime()) /
+                          (1000 * 60)
+                      )}{" "}
+                      minutes
+                    </div>
+                  )}
+                  {delivery.notes && (
+                    <div className="text-gray-400 text-sm mt-2 italic">
+                      Note: {delivery.notes}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
-}
+};
 
 export default DeliveryHistory;

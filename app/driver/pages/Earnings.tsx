@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
+import { DollarSign, TrendingUp, Package, MapPin, Calendar, RefreshCw, Target } from "lucide-react";
+
+const API_BASE_URL = process.env.REACT_APP_API_URL || "https://api-gateway-nine-orpin.vercel.app";
 
 interface EarningsData {
   today: { amount: number; deliveries: number; distance: number };
   week: { amount: number; deliveries: number; distance: number };
   month: { amount: number; deliveries: number; distance: number };
 }
-
-const BASE_URL_KEY = "https://api-gateway-nine-orpin.vercel.app";
 
 const Earnings = () => {
   const [earnings, setEarnings] = useState<EarningsData>({
@@ -25,18 +26,18 @@ const Earnings = () => {
   useEffect(() => {
     if (driverId) {
       fetchEarningsData();
+      const interval = setInterval(fetchEarningsData, 300000); // Refresh every 5 minutes
+      return () => clearInterval(interval);
     }
   }, [driverId]);
 
   const checkAuth = async () => {
     try {
-      const response = await fetch(`${BASE_URL_KEY}/check-cookie`, {
+      const response = await fetch(`${API_BASE_URL}/check-cookie`, {
         credentials: "include",
       });
 
-      if (!response.ok) {
-        throw new Error("Not authenticated");
-      }
+      if (!response.ok) throw new Error("Not authenticated");
 
       const data = await response.json();
 
@@ -53,17 +54,18 @@ const Earnings = () => {
   };
 
   const fetchEarningsData = async () => {
+    if (!driverId) return;
+
     try {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(`${BASE_URL_KEY}/api/consolidations/api/deliveries/driver/${driverId}`, {
-        credentials: "include",
-      });
+      const response = await fetch(
+        `${API_BASE_URL}/api/consolidations/api/deliveries/driver/${driverId}`,
+        { credentials: "include" }
+      );
 
-      if (!response.ok) {
-        throw new Error("Failed to fetch earnings data");
-      }
+      if (!response.ok) throw new Error("Failed to fetch earnings data");
 
       const data = await response.json();
 
@@ -89,13 +91,13 @@ const Earnings = () => {
     const completedDeliveries = deliveries.filter((d) => d.status === "completed");
 
     const todayDeliveries = completedDeliveries.filter(
-      (d) => new Date(d.createdTimestamp) >= todayStart
+      (d) => new Date(d.endTime || d.createdTimestamp) >= todayStart
     );
     const weekDeliveries = completedDeliveries.filter(
-      (d) => new Date(d.createdTimestamp) >= weekStart
+      (d) => new Date(d.endTime || d.createdTimestamp) >= weekStart
     );
     const monthDeliveries = completedDeliveries.filter(
-      (d) => new Date(d.createdTimestamp) >= monthStart
+      (d) => new Date(d.endTime || d.createdTimestamp) >= monthStart
     );
 
     const calculatePeriodStats = (periodDeliveries: any[]) => {
@@ -117,13 +119,13 @@ const Earnings = () => {
         }
       });
 
-      // Earnings formula: $5 base per delivery + $0.45 per km
-      const amount = periodDeliveries.length * 5 + totalDistance * 0.45;
+      // Earnings formula: Rs. 500 base per delivery + Rs. 45 per km
+      const amount = periodDeliveries.length * 500 + totalDistance * 45;
 
       return {
         amount: Math.round(amount * 100) / 100,
         deliveries: periodDeliveries.length,
-        distance: Math.round(totalDistance),
+        distance: Math.round(totalDistance * 10) / 10,
       };
     };
 
@@ -134,13 +136,20 @@ const Earnings = () => {
     };
   };
 
-  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
-    const R = 6371; // Earth's radius in km
+  const calculateDistance = (
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number
+  ): number => {
+    const R = 6371;
     const dLat = toRad(lat2 - lat1);
     const dLon = toRad(lon2 - lon1);
     const a =
       Math.sin(dLat / 2) ** 2 +
-      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+      Math.cos(toRad(lat1)) *
+        Math.cos(toRad(lat2)) *
+        Math.sin(dLon / 2) ** 2;
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
   };
@@ -149,10 +158,12 @@ const Earnings = () => {
 
   if (loading) {
     return (
-      <div className="max-w-6xl mx-auto flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-400">Loading earnings data...</p>
+      <div className="max-w-6xl mx-auto">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+            <p className="text-gray-400">Loading earnings data...</p>
+          </div>
         </div>
       </div>
     );
@@ -174,6 +185,9 @@ const Earnings = () => {
     );
   }
 
+  const monthlyGoal = 50000;
+  const monthlyProgress = (earnings.month.amount / monthlyGoal) * 100;
+
   return (
     <div className="max-w-6xl mx-auto">
       <div className="flex justify-between items-center mb-8">
@@ -182,128 +196,190 @@ const Earnings = () => {
         </h2>
         <button
           onClick={fetchEarningsData}
-          className="text-gray-400 hover:text-white transition-colors"
+          className="text-gray-400 hover:text-white transition-colors flex items-center gap-2"
           title="Refresh data"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-            />
-          </svg>
+          <RefreshCw className="w-5 h-5" />
+          Refresh
         </button>
       </div>
 
+      {/* Main Earnings Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         {[
           {
             title: "Today",
-            amount: `${earnings.today.amount.toFixed(2)}`,
-            details: `${earnings.today.deliveries} deliveries • ${earnings.today.distance} km`,
+            amount: earnings.today.amount.toFixed(2),
+            details: `${earnings.today.deliveries} deliveries • ${earnings.today.distance.toFixed(1)} km`,
+            icon: Calendar,
+            color: "from-blue-500 to-blue-600",
           },
           {
             title: "This Week",
-            amount: `${earnings.week.amount.toFixed(2)}`,
-            details: `${earnings.week.deliveries} deliveries • ${earnings.week.distance} km`,
+            amount: earnings.week.amount.toFixed(2),
+            details: `${earnings.week.deliveries} deliveries • ${earnings.week.distance.toFixed(1)} km`,
+            icon: TrendingUp,
+            color: "from-green-500 to-green-600",
           },
           {
             title: "This Month",
-            amount: `${earnings.month.amount.toFixed(2)}`,
-            details: `${earnings.month.deliveries} deliveries • ${earnings.month.distance} km`,
+            amount: earnings.month.amount.toFixed(2),
+            details: `${earnings.month.deliveries} deliveries • ${earnings.month.distance.toFixed(1)} km`,
+            icon: DollarSign,
+            color: "from-purple-500 to-purple-600",
           },
         ].map((earning, idx) => (
           <div
             key={idx}
-            className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6 text-center hover:-translate-y-1 hover:border-blue-400 transition-all"
+            className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6 hover:-translate-y-1 hover:border-blue-400 transition-all"
           >
-            <h3 className="text-lg font-semibold text-white mb-2">{earning.title}</h3>
-            <div className="text-2xl font-bold text-blue-400">{earning.amount}</div>
-            <p className="text-gray-400 text-sm mt-2">{earning.details}</p>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-gray-400 font-medium">{earning.title}</h3>
+              <div className={`bg-gradient-to-r ${earning.color} rounded-full p-2`}>
+                <earning.icon className="w-5 h-5 text-white" />
+              </div>
+            </div>
+            <div className="text-3xl font-bold text-white mb-2">
+              Rs. {earning.amount}
+            </div>
+            <p className="text-gray-400 text-sm">{earning.details}</p>
           </div>
         ))}
       </div>
 
-      <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6">
-        <h3 className="text-lg font-semibold text-white mb-4">Payment Breakdown</h3>
-        <div className="space-y-4">
-          {[
-            { label: "Base Rate", value: "Rs. 5.00/delivery" },
-            { label: "Distance Bonus", value: "Rs. 0.45/km" },
-            {
-              label: "Average per Delivery",
-              value: `${
-                earnings.today.deliveries > 0
-                  ? (earnings.today.amount / earnings.today.deliveries).toFixed(2)
-                  : "0.00"
-              }`,
-            },
-            { label: "Total This Month", value: `${earnings.month.amount.toFixed(2)}` },
-          ].map((item, idx) => (
-            <div
-              key={idx}
-              className="flex justify-between items-center text-gray-400 hover:text-white transition-colors"
-            >
-              <span>{item.label}</span>
-              <span className="font-semibold">{item.value}</span>
+      {/* Payment Breakdown */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6">
+          <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            <DollarSign className="w-5 h-5 text-green-400" />
+            Payment Breakdown
+          </h3>
+          <div className="space-y-4">
+            {[
+              { label: "Base Rate per Delivery", value: "Rs. 500.00" },
+              { label: "Distance Bonus per km", value: "Rs. 45.00" },
+              {
+                label: "Average per Delivery",
+                value:
+                  earnings.month.deliveries > 0
+                    ? `Rs. ${(earnings.month.amount / earnings.month.deliveries).toFixed(2)}`
+                    : "Rs. 0.00",
+              },
+              { label: "Total This Month", value: `Rs. ${earnings.month.amount.toFixed(2)}` },
+            ].map((item, idx) => (
+              <div
+                key={idx}
+                className="flex justify-between items-center text-gray-400 hover:text-white transition-colors p-3 bg-gray-900/50 rounded-lg"
+              >
+                <span>{item.label}</span>
+                <span className="font-semibold text-white">{item.value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Monthly Goal Progress */}
+        <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6">
+          <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            <Target className="w-5 h-5 text-yellow-400" />
+            Monthly Goal Progress
+          </h3>
+          <div className="mb-6">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-gray-400">Target: Rs. {monthlyGoal.toLocaleString()}</span>
+              <span className="text-white font-semibold">{monthlyProgress.toFixed(1)}%</span>
             </div>
-          ))}
+            <div className="bg-gray-700 rounded-full h-4 overflow-hidden">
+              <div
+                className="bg-gradient-to-r from-green-500 to-green-600 h-full transition-all duration-500"
+                style={{ width: `${Math.min(monthlyProgress, 100)}%` }}
+              ></div>
+            </div>
+            <div className="text-center mt-4">
+              <div className="text-2xl font-bold text-white mb-1">
+                Rs. {(monthlyGoal - earnings.month.amount).toFixed(2)}
+              </div>
+              <div className="text-gray-400 text-sm">Remaining to reach goal</div>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div className="mt-6 bg-gray-800/50 border border-gray-700 rounded-xl p-6">
-        <h3 className="text-lg font-semibold text-white mb-4">Earnings Insights</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-          <div className="flex items-start gap-3">
-            <span className="text-2xl">📊</span>
-            <div>
-              <p className="text-white font-semibold">Daily Average</p>
-              <p className="text-gray-400">
-                Rs. 
-                {earnings.month.deliveries > 0
-                  ? (earnings.month.amount / 30).toFixed(2)
-                  : "0.00"}{" "}
-                per day
-              </p>
+      {/* Earnings Insights */}
+      <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6">
+        <h3 className="text-lg font-semibold text-white mb-6 flex items-center gap-2">
+          <TrendingUp className="w-5 h-5 text-blue-400" />
+          Earnings Insights
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700">
+            <div className="flex items-center gap-3 mb-2">
+              <Calendar className="w-5 h-5 text-blue-400" />
+              <span className="text-gray-400 text-sm">Daily Average</span>
             </div>
+            <div className="text-xl font-bold text-white">
+              Rs.{" "}
+              {earnings.month.deliveries > 0
+                ? (earnings.month.amount / 30).toFixed(2)
+                : "0.00"}
+            </div>
+            <div className="text-gray-500 text-xs mt-1">per day this month</div>
           </div>
-          <div className="flex items-start gap-3">
-            <span className="text-2xl">🎯</span>
-            <div>
-              <p className="text-white font-semibold">Monthly Target</p>
-              <p className="text-gray-400">
-                {earnings.month.amount > 0
-                  ? Math.round((earnings.month.amount / 5000) * 100)
-                  : 0}
-                % of Rs. 5,000 goal
-              </p>
+
+          <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700">
+            <div className="flex items-center gap-3 mb-2">
+              <Package className="w-5 h-5 text-green-400" />
+              <span className="text-gray-400 text-sm">Delivery Rate</span>
             </div>
+            <div className="text-xl font-bold text-white">
+              {earnings.week.deliveries > 0
+                ? (earnings.week.deliveries / 7).toFixed(1)
+                : "0"}
+            </div>
+            <div className="text-gray-500 text-xs mt-1">deliveries per day</div>
           </div>
-          <div className="flex items-start gap-3">
-            <span className="text-2xl">🚗</span>
-            <div>
-              <p className="text-white font-semibold">Efficiency</p>
-              <p className="text-gray-400">
-                Rs. 
-                {earnings.week.distance > 0
-                  ? (earnings.week.amount / earnings.week.distance).toFixed(2)
-                  : "0.00"}{" "}
-                per km
-              </p>
+
+          <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700">
+            <div className="flex items-center gap-3 mb-2">
+              <MapPin className="w-5 h-5 text-yellow-400" />
+              <span className="text-gray-400 text-sm">Efficiency</span>
             </div>
+            <div className="text-xl font-bold text-white">
+              Rs.{" "}
+              {earnings.week.distance > 0
+                ? (earnings.week.amount / earnings.week.distance).toFixed(2)
+                : "0.00"}
+            </div>
+            <div className="text-gray-500 text-xs mt-1">per km this week</div>
           </div>
-          <div className="flex items-start gap-3">
-            <span className="text-2xl">📦</span>
-            <div>
-              <p className="text-white font-semibold">Delivery Rate</p>
-              <p className="text-gray-400">
-                {earnings.week.deliveries > 0
-                  ? Math.round(earnings.week.deliveries / 7)
-                  : 0}{" "}
-                deliveries/day
-              </p>
+
+          <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700">
+            <div className="flex items-center gap-3 mb-2">
+              <TrendingUp className="w-5 h-5 text-purple-400" />
+              <span className="text-gray-400 text-sm">Weekly Growth</span>
             </div>
+            <div className="text-xl font-bold text-white">
+              {earnings.week.deliveries > 0 && earnings.today.deliveries > 0
+                ? `+${((earnings.today.deliveries / (earnings.week.deliveries / 7)) * 100 - 100).toFixed(0)}%`
+                : "N/A"}
+            </div>
+            <div className="text-gray-500 text-xs mt-1">vs weekly average</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Additional Info */}
+      <div className="mt-6 bg-blue-500/10 border border-blue-500/50 rounded-xl p-4">
+        <div className="flex items-start gap-3">
+          <div className="bg-blue-500/20 rounded-full p-2 flex-shrink-0">
+            <DollarSign className="w-5 h-5 text-blue-400" />
+          </div>
+          <div>
+            <h4 className="text-blue-300 font-semibold mb-1">Payment Information</h4>
+            <p className="text-gray-300 text-sm">
+              Earnings are calculated based on completed deliveries. Base rate of Rs. 500 per delivery plus Rs. 45 per kilometer traveled. 
+              Payments are processed weekly and deposited to your registered bank account.
+            </p>
           </div>
         </div>
       </div>
