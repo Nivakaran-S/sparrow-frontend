@@ -231,7 +231,7 @@ export default function WarehouseManagement({ userId }: { userId?: string }) {
 
     try {
       // If address is being edited and is an object, update it first
-      let addressId = typeof activeModal.warehouse.address === 'string' 
+      const addressId = typeof activeModal.warehouse.address === 'string' 
         ? activeModal.warehouse.address 
         : activeModal.warehouse.address._id;
 
