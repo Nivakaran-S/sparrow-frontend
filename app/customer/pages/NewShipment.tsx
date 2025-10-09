@@ -58,7 +58,7 @@ const NewShipment = () => {
 
   const fetchPricingTypes = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/pricing?isActive=true`, {
+      const response = await fetch(`${API_BASE_URL}/api/pricing/api/pricing?isActive=true`, {
         credentials: 'include',
       });
       
@@ -78,7 +78,7 @@ const NewShipment = () => {
       const selectedPricing = pricingTypes.find(p => p._id === shipmentData.pricingId);
       if (!selectedPricing) return;
 
-      const response = await fetch(`${API_BASE_URL}/api/pricing/calculate`, {
+      const response = await fetch(`${API_BASE_URL}/api/pricing/api/pricing/calculate`, {
         method: 'POST',
         credentials: 'include',
         headers: {
@@ -144,7 +144,7 @@ const NewShipment = () => {
         status: "created"
       };
 
-      const response = await fetch(`${API_BASE_URL}/api/parcels`, {
+      const response = await fetch(`${API_BASE_URL}/api/parcels/api/parcels`, {
         method: 'POST',
         credentials: 'include',
         headers: {
@@ -203,7 +203,7 @@ const NewShipment = () => {
         paymentStatus: "successful"
       };
 
-      const paymentResponse = await fetch(`${API_BASE_URL}/api/payment`, {
+      const paymentResponse = await fetch(`${API_BASE_URL}/api/parcels/api/payment`, {
         method: 'POST',
         credentials: 'include',
         headers: {
@@ -238,7 +238,7 @@ const NewShipment = () => {
           status: "paid"
         };
 
-        const invoiceResponse = await fetch(`${API_BASE_URL}/api/invoice`, {
+        const invoiceResponse = await fetch(`${API_BASE_URL}/api/parcels/api/invoice`, {
           method: 'POST',
           credentials: 'include',
           headers: {

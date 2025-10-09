@@ -12,6 +12,7 @@ import SystemLogs from "./pages/SystemLogs";
 import Reports from "./pages/Reports";
 import SystemSettings from "./pages/SystemSettings";
 import SwiftScreen from "./pages/SwiftScreen";
+import AdminPricing from "./pages/AdminPricing";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api-gateway-nine-orpin.vercel.app";
 
@@ -102,6 +103,7 @@ export default function AdminDashboard() {
           {activeTab === 'overview' && <AdminOverview />}
           {activeTab === 'users' && <UserManagement />}
           {activeTab === 'roles' && <RoleManagement />}
+          {activeTab === 'pricing' && <AdminPricing />}
           {activeTab === 'kpis' && <KPIMonitoring />}
           {activeTab === 'logs' && <SystemLogs />}
           {activeTab === 'reports' && <Reports />}
