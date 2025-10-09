@@ -132,7 +132,7 @@ export default function RegistrationForm() {
 
   return (
     <div className="min-h-[89vh] relative top-[-20px] flex-col w-[100%] flex items-center justify-center py-[1rem] px-[0px] pt-[70px]">
-      <div className="flex items-center justify-center w-[100%] max-w-[600px] bg-white rounded-[1rem] border-[1.5px] border-[#101010] overflow-hidden">
+      <div className="flex items-center justify-center w-[100%] max-w-[600px] bg-white rounded-[1rem] ring-[0.5px] ring-[#101010] overflow-hidden">
         <div className="flex flex-col items-center w-full justify-center py-[2rem] px-[1.5rem]">
           <div className="w-[100%] flex flex-col max-w-[450px]">
             <h2 className="text-[1.9rem] mb-[0.5rem] text-[#101010] text-center">
@@ -165,7 +165,7 @@ export default function RegistrationForm() {
                     type="text"
                     id="firstName"
                     name="firstName"
-                    className="py-[0.6rem] px-[0.8rem] focus:border-[#FFA00A] rounded-[0.5rem] border-[1px] border-[#374151] bg-white text-black text-[0.9rem] outline-none transition-[0.2s]"
+                    className="py-[0.6rem] px-[0.8rem] focus:ring-[#808080] rounded-[0.5rem] ring-[0.75px] ring-[#374151] bg-white text-black text-[0.9rem] outline-none transition-[0.2s]"
                     placeholder="John"
                     value={formData.firstName}
                     onChange={handleChange}
@@ -184,7 +184,7 @@ export default function RegistrationForm() {
                     type="text"
                     id="lastName"
                     name="lastName"
-                    className="py-[0.6rem] px-[0.8rem] focus:border-[#FFA00A] rounded-[0.5rem] border-[1px] border-[#374151] bg-white text-black text-[0.9rem] outline-none transition-[0.2s]"
+                    className="py-[0.6rem] px-[0.8rem] focus:ring-[#808080] rounded-[0.5rem] ring-[0.75px] ring-[#101010] bg-white text-black text-[0.9rem] outline-none transition-[0.2s]"
                     placeholder="Doe"
                     value={formData.lastName}
                     onChange={handleChange}
@@ -203,7 +203,7 @@ export default function RegistrationForm() {
                   type="text"
                   id="userName"
                   name="userName"
-                  className="py-[0.6rem] px-[0.8rem] focus:border-[#FFA00A] rounded-[0.5rem] border-[1px] border-[#374151] bg-white text-black text-[0.9rem] outline-none transition-[0.2s]"
+                  className="py-[0.6rem] px-[0.8rem] focus:ring-[#808080] rounded-[0.5rem] ring-[0.75px] ring-[#101010] bg-white text-black text-[0.9rem] outline-none transition-[0.2s]"
                   placeholder="johndoe"
                   value={formData.userName}
                   onChange={handleChange}
@@ -225,7 +225,7 @@ export default function RegistrationForm() {
                   type="email"
                   id="email"
                   name="email"
-                  className="py-[0.6rem] px-[0.8rem] focus:border-[#FFA00A] rounded-[0.5rem] border-[1px] border-[#374151] bg-white text-black text-[0.9rem] outline-none transition-[0.2s]"
+                  className="py-[0.6rem] px-[0.8rem] focus:ring-[#808080] rounded-[0.5rem] ring-[0.75px] ring-[#101010] bg-white text-black text-[0.9rem] outline-none transition-[0.2s]"
                   placeholder="your@email.com"
                   value={formData.email}
                   onChange={handleChange}
@@ -246,7 +246,7 @@ export default function RegistrationForm() {
                   type="tel"
                   id="phoneNumber"
                   name="phoneNumber"
-                  className="py-[0.6rem] px-[0.8rem] focus:border-[#FFA00A] rounded-[0.5rem] border-[1px] border-[#374151] bg-white text-black text-[0.9rem] outline-none transition-[0.2s]"
+                  className="py-[0.6rem] px-[0.8rem] focus:ring-[#808080] rounded-[0.5rem] ring-[0.75px] ring-[#101010] bg-white text-black text-[0.9rem] outline-none transition-[0.2s]"
                   placeholder="+1234567890"
                   value={formData.phoneNumber}
                   onChange={handleChange}
@@ -311,7 +311,7 @@ export default function RegistrationForm() {
                       type={showPassword ? "text" : "password"}
                       id="password"
                       name="password"
-                      className="py-[0.6rem] px-[0.8rem] w-[100%] focus:border-[#FFA00A] rounded-[0.5rem] border-[1px] border-[#374151] bg-white text-black text-[0.9rem] outline-none transition-[0.2s]"
+                      className="py-[0.6rem] px-[0.8rem] w-[100%] focus:ring-[#808080] rounded-[0.5rem] ring-[0.75px] ring-[#101010] bg-white text-black text-[0.9rem] outline-none transition-[0.2s]"
                       placeholder="Password"
                       value={formData.password}
                       onChange={handleChange}
@@ -321,7 +321,7 @@ export default function RegistrationForm() {
                     />
                     <button
                       type="button"
-                      className="ml-[0.5rem] hover:text-[#FFA00A] bg-none border-none text-[#101010] text-[0.75rem] cursor-pointer padding-0 transition-[0.2s] absolute right-[8px]"
+                      className="ml-[0.5rem] hover:text-[#808080] bg-none border-none text-[#101010] text-[0.75rem] cursor-pointer padding-0 transition-[0.2s] absolute right-[8px]"
                       onClick={() => setShowPassword(!showPassword)}
                     >
                       {showPassword ? "Hide" : "Show"}
@@ -344,7 +344,7 @@ export default function RegistrationForm() {
                       type={showConfirmPassword ? "text" : "password"}
                       id="confirmPassword"
                       name="confirmPassword"
-                      className="py-[0.6rem] px-[0.8rem] w-[100%] focus:border-[#FFA00A] rounded-[0.5rem] border-[1px] border-[#374151] bg-white text-black text-[0.9rem] outline-none transition-[0.2s]"
+                      className="py-[0.6rem] px-[0.8rem] w-[100%] focus:ring-[#808080] rounded-[0.5rem] ring-[0.75px] ring-[#101010] bg-white text-black text-[0.9rem] outline-none transition-[0.2s]"
                       placeholder="Confirm"
                       value={formData.confirmPassword}
                       onChange={handleChange}
@@ -353,7 +353,7 @@ export default function RegistrationForm() {
                     />
                     <button
                       type="button"
-                      className="ml-[0.5rem] hover:text-[#FFA00A] bg-none border-none text-[#101010] text-[0.75rem] cursor-pointer padding-0 transition-[0.2s] absolute right-[8px]"
+                      className="ml-[0.5rem] hover:text-[#808080] bg-none border-none text-[#101010] text-[0.75rem] cursor-pointer padding-0 transition-[0.2s] absolute right-[8px]"
                       onClick={() =>
                         setShowConfirmPassword(!showConfirmPassword)
                       }

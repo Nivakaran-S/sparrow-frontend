@@ -75,7 +75,7 @@ export default function LoginForm() {
 
   return (
     <div className="min-h-[89vh] w-[500px] flex items-center justify-center py-[1rem]">
-      <div className="flex items-center justify-center w-[100%] max-w-[400px] h-[60vh] bg-white rounded-[1rem] border-[1.5px] border-[#101010] overflow-hidden">
+      <div className="flex items-center justify-center w-[100%] max-w-[400px] h-[60vh] bg-white rounded-[1rem] border-[0.15px] border-[#101010] overflow-hidden">
         <div className="flex flex-col items-center justify-center py-[2rem] px-[1.5rem] w-[100%] max-w-[320px]">
           <h2 className="text-[1.9rem] mb-[0.2rem] text-[#101010]">Welcome Back:)</h2>
 
@@ -93,7 +93,7 @@ export default function LoginForm() {
               <input
                 type="text"
                 id="userName"
-                className="py-[0.6rem] px-[0.8rem] rounded-[0.5rem] border-[1px] border-[#374151] bg-white text-black outline-none focus:border-[#FFA00A]"
+                className="py-[0.6rem] px-[0.8rem] rounded-[0.5rem] ring-[0.8px] ring-[#101010] bg-white text-black outline-none focus:ring-[#808080]"
                 placeholder="Enter your username"
                 value={userName}
                 onChange={(e) => setUserName(e.target.value)}
@@ -110,7 +110,7 @@ export default function LoginForm() {
                 <input
                   type={showPassword ? "text" : "password"}
                   id="password"
-                  className="py-[0.6rem] px-[0.8rem] w-[100%] rounded-[0.5rem] border-[1px] border-[#374151] bg-white text-black outline-none focus:border-[#FFA00A]"
+                  className="py-[0.6rem] px-[0.8rem] w-[100%] rounded-[0.5rem] ring-[0.8px] ring-[#101010] bg-white text-black outline-none focus:ring-[#808080]"
                   placeholder="Enter your password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -119,7 +119,7 @@ export default function LoginForm() {
                 />
                 <button
                   type="button"
-                  className="absolute right-[8px] text-[0.75rem] cursor-pointer text-gray-500 hover:text-[#FFA00A] transition-colors"
+                  className="absolute right-[8px] text-[0.75rem] cursor-pointer text-[#101010] hover:text-[#808080] transition-colors"
                   onClick={() => setShowPassword(!showPassword)}
                 >
                   {showPassword ? "Hide" : "Show"}
@@ -130,7 +130,7 @@ export default function LoginForm() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-[100%] py-[0.4rem] bg-[#FFA00A] text-black rounded-[0.5rem] hover:bg-black hover:text-white transition-[0.2s] disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-[100%] py-[0.4rem] cursor-pointer bg-[#FFA00A] text-black rounded-[0.5rem] hover:bg-black hover:text-white transition-[0.2s] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? "Signing In..." : "Sign In"}
             </button>

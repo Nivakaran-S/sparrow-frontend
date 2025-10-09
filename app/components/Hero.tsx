@@ -22,14 +22,24 @@ export default function Hero() {
 
           </div>
           <div className="flex flex-row space-x-[10px] items-center justify-center">
-            <div className="bg-[#FFA00A] ring-[0.5px] hover:bg-black hover:text-white cursor-pointer rounded-[5px] text-black w-[130px] flex items-center justify-center py-[8px] text-[18px]">
-                <Link href="/login" className="">Ship Now</Link>
+            <div className=" cursor-pointer  hover:text-white rounded-full text-black  flex items-center justify-center  text-[18px]">
+                <Link 
+                href="/login"
+                  className="px-6 pt-2 pb-3 text-white font-semibold rounded-full backdrop-blur-sm bg-black border border-black/20 hover:bg-black hover:border-[#FFA00A]/50  transition-all duration-300 transform hover:scale-105"
+                >
+                Ship now
+              </Link>
             </div>
             <div className="w-[20px]">
 
             </div>
-            <div className="bg-[#FFA00A] ring-[0.5px] cursor-pointer hover:bg-black hover:text-white rounded-full text-black w-[170px] flex items-center justify-center py-[8px] text-[18px]">
-                <Link href="/track" className="">Track Package</Link>
+            <div className=" cursor-pointer  hover:text-white rounded-full text-black  flex items-center justify-center  text-[18px]">
+                <Link 
+                href="/track"
+                  className="px-6 pt-2 pb-3 text-white font-semibold rounded-full backdrop-blur-sm bg-black border border-black/20 hover:bg-black hover:border-[#FFA00A]/50  transition-all duration-300 transform hover:scale-105"
+                >
+                Track Package
+              </Link>
             </div>
           </div>
         </div>
