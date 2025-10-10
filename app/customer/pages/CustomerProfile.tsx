@@ -3,7 +3,13 @@ import { useState, useEffect } from "react";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api-gateway-nine-orpin.vercel.app";
 
-const CustomerProfile = () => {
+
+interface TrackShipmentsProps {
+  setActiveTab?: (tab: string) => void;
+}
+
+
+const CustomerProfile = ({ setActiveTab }: TrackShipmentsProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

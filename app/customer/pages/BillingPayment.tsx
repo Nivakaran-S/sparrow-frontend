@@ -3,8 +3,13 @@ import { useState, useEffect } from "react";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api-gateway-nine-orpin.vercel.app/api/parcels";
 
-const BillingPayment = () => {
-  const [activeTab, setActiveTab] = useState("overview");
+interface TrackShipmentsProps {
+  setActiveTab?: (tab: string) => void;
+}
+
+
+const BillingPayment = ({ setActiveTab }: TrackShipmentsProps) => {
+  const [activeTabInside, setActiveTabInside] = useState("overview");
   const [paymentMethods, setPaymentMethods] = useState([
     { id: 1, type: "Credit Card", last4: "4242", expiry: "12/25", isDefault: true },
     { id: 2, type: "PayPal", email: "user@example.com", isDefault: false }
@@ -114,9 +119,9 @@ const BillingPayment = () => {
         {["overview", "invoices", "transactions"].map((tab) => (
           <button
             key={tab}
-            onClick={() => setActiveTab(tab)}
+            onClick={() => setActiveTabInside(tab)}
             className={`px-6 py-3 font-medium transition-colors ${
-              activeTab === tab
+              activeTabInside === tab
                 ? "text-blue-400 border-b-2 border-blue-400"
                 : "text-gray-400 hover:text-white"
             }`}
@@ -127,7 +132,7 @@ const BillingPayment = () => {
       </div>
 
       {/* Overview Tab */}
-      {activeTab === "overview" && (
+      {activeTabInside === "overview" && (
         <div className="space-y-6">
           {/* Balance Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -186,7 +191,7 @@ const BillingPayment = () => {
       )}
 
       {/* Payment Methods Tab */}
-      {activeTab === "methods" && (
+      {activeTabInside === "methods" && (
         <div className="space-y-6">
           <div className="flex justify-between items-center mb-4">
             <p className="text-gray-400">Manage your payment methods</p>
@@ -241,7 +246,7 @@ const BillingPayment = () => {
       )}
 
       {/* Invoices Tab */}
-      {activeTab === "invoices" && (
+      {activeTabInside === "invoices" && (
         <div className="space-y-6">
           <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl border border-gray-700 overflow-hidden">
             <div className="overflow-x-auto">
@@ -291,7 +296,7 @@ const BillingPayment = () => {
       )}
 
       {/* Transactions Tab */}
-      {activeTab === "transactions" && (
+      {activeTabInside === "transactions" && (
         <div className="space-y-6">
           {/* Filters */}
           <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl border border-gray-700 p-6">

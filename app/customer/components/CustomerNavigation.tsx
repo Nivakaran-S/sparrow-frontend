@@ -22,7 +22,12 @@ interface Notification {
   entityId?: string;
 }
 
-const CustomerNavigation = ({ user }: { user?: UserResponse }) => {
+interface CustomerNavigationProps {
+  user?: UserResponse;
+  setActiveTab?: (tab: string) => void;
+}
+
+const CustomerNavigation = ({ user, setActiveTab }: CustomerNavigationProps) => {
   const router = useRouter();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
@@ -211,7 +216,10 @@ const CustomerNavigation = ({ user }: { user?: UserResponse }) => {
           <div className="flex items-center gap-6">
             {/* Quick Actions */}
             <div className="hidden md:flex items-center gap-3">
-              <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
+              <button 
+                onClick={() => setActiveTab && setActiveTab('newShipment')}
+                className="px-4 py-2 cursor-pointer bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+              >
                 <Plus className="w-4 h-4" />
                 New Shipment
               </button>
@@ -331,10 +339,22 @@ const CustomerNavigation = ({ user }: { user?: UserResponse }) => {
 
               {isDropdownOpen && (
                 <div className="absolute right-0 mt-2 w-48 bg-gray-800 border border-gray-700 rounded-lg shadow-lg py-2 z-50">
-                  <button className="w-full px-4 py-2 text-left text-white hover:bg-gray-700 transition-colors">
+                  <button 
+                    onClick={() => {
+                      setActiveTab && setActiveTab('profile');
+                      setIsDropdownOpen(false);
+                    }}
+                    className="w-full px-4 py-2 text-left text-white hover:bg-gray-700 transition-colors"
+                  >
                     Profile Settings
                   </button>
-                  <button className="w-full px-4 py-2 text-left text-white hover:bg-gray-700 transition-colors">
+                  <button 
+                    onClick={() => {
+                      setActiveTab && setActiveTab('billing');
+                      setIsDropdownOpen(false);
+                    }}
+                    className="w-full px-4 py-2 text-left text-white hover:bg-gray-700 transition-colors"
+                  >
                     Billing & Payment
                   </button>
                   <div className="border-t border-gray-700 my-2"></div>

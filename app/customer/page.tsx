@@ -88,19 +88,19 @@ export default function CustomerDashboard() {
 
   return (
     <div className="min-h-screen bg-blue-900 text-white">
-      <CustomerNavigation user={user} />
-      <div className="flex   min-h-[calc(100vh-80px)]">
+      <CustomerNavigation user={user} setActiveTab={setActiveTab} />
+      <div className="flex min-h-[calc(100vh-80px)]">
         <CustomerSidebar activeTab={activeTab} setActiveTab={setActiveTab} />
-        <main className="flex-1 p-8 ml-[18vw] min-h-[90vh]  mt-[10vh] overflow-y-auto bg-[#1A1A1A]">
-          {activeTab === 'overview' && <CustomerOverview />}
-          {activeTab === 'profile' && <CustomerProfile />}
-          {activeTab === 'billing' && <BillingPayment />}
-          {activeTab === 'parcels' && <MyParcels />}
-          {activeTab === 'tracking' && <TrackShipments />}
-          {activeTab === 'newShipment' && <NewShipment />}
-          {activeTab === 'support' && <HelpSupport />}
-          {activeTab === 'swift' && <SwiftScreen />}
-          {activeTab === 'history' && <OrderHistory />}
+        <main className="flex-1 p-8 ml-[18vw] min-h-[90vh] mt-[10vh] overflow-y-auto bg-[#1A1A1A]">
+          {activeTab === 'overview' && <CustomerOverview setActiveTab={setActiveTab} />}
+          {activeTab === 'profile' && <CustomerProfile setActiveTab={setActiveTab} />}
+          {activeTab === 'billing' && <BillingPayment setActiveTab={setActiveTab} />}
+          {activeTab === 'parcels' && <MyParcels setActiveTab={setActiveTab} />}
+          {activeTab === 'tracking' && <TrackShipments setActiveTab={setActiveTab} />}
+          {activeTab === 'newShipment' && <NewShipment setActiveTab={setActiveTab} />}
+          {activeTab === 'support' && <HelpSupport setActiveTab={setActiveTab} />}
+          {activeTab === 'swift' && <SwiftScreen setActiveTab={setActiveTab} />}
+          {activeTab === 'history' && <OrderHistory setActiveTab={setActiveTab} />}
           {activeTab === 'addresses' && (
             <div className="text-white">
               <h2 className="text-3xl font-bold mb-2">Saved Addresses</h2>

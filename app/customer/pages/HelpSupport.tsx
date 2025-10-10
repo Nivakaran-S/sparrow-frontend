@@ -1,7 +1,11 @@
 "use client";
 import { useState } from "react";
 
-const HelpSupport = () => {
+interface TrackShipmentsProps {
+  setActiveTab?: (tab: string) => void;
+}
+
+const HelpSupport = ({ setActiveTab }: TrackShipmentsProps) => {
   const [activeCategory, setActiveCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [showContactForm, setShowContactForm] = useState(false);
@@ -125,7 +129,7 @@ const HelpSupport = () => {
         <div className="bg-gradient-to-br from-purple-900/30 to-gray-900 p-6 rounded-xl border border-purple-700 hover:border-purple-500 transition-all cursor-pointer">
           <div className="text-4xl mb-3">📞</div>
           <h3 className="text-lg font-semibold text-white mb-2">Phone Support</h3>
-          <p className="text-gray-400 text-sm mb-4">+1 (800) 123-4567</p>
+          <p className="text-gray-400 text-sm mb-4">+94 (011) 252-4567</p>
           <button className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition-colors">
             Call Now
           </button>

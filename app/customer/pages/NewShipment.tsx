@@ -13,7 +13,12 @@ interface PricingType {
   isActive: boolean;
 }
 
-const NewShipment = () => {
+interface TrackShipmentsProps {
+  setActiveTab?: (tab: string) => void;
+}
+
+
+const NewShipment = ({ setActiveTab }: TrackShipmentsProps) => {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [createdParcel, setCreatedParcel] = useState<any>(null);

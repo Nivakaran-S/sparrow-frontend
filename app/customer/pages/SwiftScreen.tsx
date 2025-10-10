@@ -21,7 +21,12 @@ type Session = {
 const STORAGE_KEY = 'swift_sessions_v1';
 const API_URL = 'https://nivakaran-sparrowagenticai.hf.space/chat';
 
-export default function SwiftScreen() {
+interface TrackShipmentsProps {
+  setActiveTab?: (tab: string) => void;
+}
+
+
+export default function SwiftScreen({ setActiveTab }: TrackShipmentsProps) {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [message, setMessage] = useState('');

@@ -3,7 +3,12 @@ import { useState, useEffect } from "react";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api-gateway-nine-orpin.vercel.app";
 
-const MyParcels = () => {
+interface TrackShipmentsProps {
+  setActiveTab?: (tab: string) => void;
+}
+
+
+const MyParcels = ({ setActiveTab }: TrackShipmentsProps) => {
   const [parcels, setParcels] = useState<any[]>([]);
   const [filteredParcels, setFilteredParcels] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -235,8 +240,9 @@ const MyParcels = () => {
 
       {/* Parcel Details Modal */}
       {showDetails && selectedParcel && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10000] p-4">
-          <div className="bg-gray-900 rounded-xl border border-gray-700 max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0  flex items-center justify-center z-[10000]">
+          <div className="h-[100vh] w-[100vw] bg-black opacity-50 "></div>
+          <div className="bg-gray-900 overflow-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] rounded-xl border absolute  border-gray-700 max-w-3xl w-full max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-gray-900 border-b border-gray-700 p-6 flex items-center justify-between">
               <h3 className="text-2xl font-bold text-white">Parcel Details</h3>
               <button
@@ -371,7 +377,7 @@ const MyParcels = () => {
             <div className="sticky bottom-0 bg-gray-900 border-t border-gray-700 p-6">
               <button
                 onClick={() => setShowDetails(false)}
-                className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+                className="w-full px-6 py-3 cursor-pointer bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
               >
                 Close
               </button>

@@ -3,7 +3,12 @@ import { useState, useEffect } from "react";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api-gateway-nine-orpin.vercel.app/api/parcels";
 
-const CustomerOverview = () => {
+
+interface TrackShipmentsProps {
+  setActiveTab?: (tab: string) => void;
+}
+
+const CustomerOverview = ({ setActiveTab }: TrackShipmentsProps) => {
   const [stats, setStats] = useState({
     totalParcels: 0,
     inTransit: 0,
@@ -131,7 +136,7 @@ const CustomerOverview = () => {
       <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl border border-gray-700 p-6">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-xl font-bold text-white">Recent Parcels</h3>
-          <button className="text-blue-400 hover:text-blue-300 text-sm font-medium">
+          <button onClick={() => setActiveTab && setActiveTab('parcels')} className="text-blue-400 hover:text-blue-300 text-sm font-medium">
             View All →
           </button>
         </div>
@@ -175,20 +180,20 @@ const CustomerOverview = () => {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
-        <div className="bg-gradient-to-br from-blue-900/30 to-gray-900 p-6 rounded-xl border border-blue-700 hover:border-blue-500 transition-all cursor-pointer">
+      <div  className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+        <div onClick={() => setActiveTab && setActiveTab('newShipment')} className="bg-gradient-to-br from-blue-900/30 to-gray-900 p-6 rounded-xl border border-blue-700 hover:border-blue-500 transition-all cursor-pointer">
           <div className="text-4xl mb-3">➕</div>
           <h4 className="text-lg font-semibold text-white mb-2">Create New Shipment</h4>
           <p className="text-gray-400 text-sm">Start shipping your parcels</p>
         </div>
 
-        <div className="bg-gradient-to-br from-purple-900/30 to-gray-900 p-6 rounded-xl border border-purple-700 hover:border-purple-500 transition-all cursor-pointer">
+        <div onClick={() => setActiveTab && setActiveTab('tracking')} className="bg-gradient-to-br from-purple-900/30 to-gray-900 p-6 rounded-xl border border-purple-700 hover:border-purple-500 transition-all cursor-pointer">
           <div className="text-4xl mb-3">🔍</div>
           <h4 className="text-lg font-semibold text-white mb-2">Track Shipment</h4>
           <p className="text-gray-400 text-sm">Monitor your parcel status</p>
         </div>
 
-        <div className="bg-gradient-to-br from-green-900/30 to-gray-900 p-6 rounded-xl border border-green-700 hover:border-green-500 transition-all cursor-pointer">
+        <div onClick={() => setActiveTab && setActiveTab('history')} className="bg-gradient-to-br from-green-900/30 to-gray-900 p-6 rounded-xl border border-green-700 hover:border-green-500 transition-all cursor-pointer">
           <div className="text-4xl mb-3">📋</div>
           <h4 className="text-lg font-semibold text-white mb-2">View History</h4>
           <p className="text-gray-400 text-sm">Check past shipments</p>
