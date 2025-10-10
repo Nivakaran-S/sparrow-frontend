@@ -136,10 +136,27 @@ const Earnings = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (t
   };
 
   const getDriverPricingForParcel = (parcelType: string): DriverPricing | null => {
-    const pricing = driverPricings.find(dp => dp.parcelType === parcelType);
+    // Try exact match first
+    let pricing = driverPricings.find(dp => dp.parcelType === parcelType);
+    console.log("**Driver Pricing", driverPricings)
+    console.log("**Pricing", pricing)
+    // If not found, try case-insensitive match
     if (!pricing) {
-      console.warn(`⚠️ No driver pricing found for parcel type: ${parcelType}`);
+      pricing = driverPricings.find(dp => 
+        dp.parcelType.toLowerCase() === parcelType.toLowerCase()
+      );
     }
+    
+    // If still not found, use Standard as fallback
+    if (!pricing) {
+      console.warn(`⚠️ No driver pricing found for parcel type: ${parcelType}, using Standard`);
+      pricing = driverPricings.find(dp => dp.parcelType === "Standard");
+    }
+    
+    if (!pricing) {
+      console.error(`❌ No driver pricing available at all!`);
+    }
+    
     return pricing || null;
   };
 
@@ -152,14 +169,18 @@ const Earnings = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (t
     // Filter completed consolidation deliveries assigned to this driver
     const completedDeliveries = deliveries.filter((d) => {
       const isCompleted = d.status === "completed";
-      const isAssignedToMe = d.driverId === driverId || d.driverId?._id === driverId;
+      // Handle both string and object driverId
+      const deliveryDriverId = typeof d.driverId === 'string' ? d.driverId : d.driverId?._id;
+      const isAssignedToMe = deliveryDriverId === driverId;
       return isCompleted && isAssignedToMe;
     });
     
     // Filter delivered parcels assigned to this driver
     const deliveredParcels = parcels.filter((p) => {
       const isDelivered = p.status === "delivered";
-      const isAssignedToMe = p.assignedDriver === driverId || p.assignedDriver?._id === driverId;
+      // Handle both string and object assignedDriver
+      const parcelDriverId = typeof p.assignedDriver === 'string' ? p.assignedDriver : p.assignedDriver?._id;
+      const isAssignedToMe = parcelDriverId === driverId;
       return isDelivered && isAssignedToMe;
     });
 
@@ -225,11 +246,24 @@ const Earnings = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (t
         // Calculate earnings for each parcel in consolidation
         const consolidation = delivery.consolidationId;
         if (consolidation?.parcels && consolidation.parcels.length > 0) {
-          const distancePerParcel = deliveryDistance / consolidation.parcels.length;
+          const distancePerParcel = consolidation.parcels.length > 0 ? deliveryDistance / consolidation.parcels.length : 0;
           
           consolidation.parcels.forEach((parcel: any) => {
-            // Get parcel type from pricingId
-            const parcelType = parcel.pricingId?.parcelType || "Standard";
+            // Get parcel type from pricingId - handle both populated and string pricingId
+            let parcelType = "Standard"; // Default
+            
+            if (parcel.pricingId) {
+              if (typeof parcel.pricingId === 'string') {
+                // If pricingId is just a string, we need to match it or use default
+                parcelType = "Standard";
+              } else if (parcel.pricingId.parcelType) {
+                // If pricingId is populated with full object
+                parcelType = parcel.pricingId.parcelType;
+              }
+            }
+            
+            console.log(`📦 Processing parcel ${parcel.trackingNumber}, type: ${parcelType}`);
+            
             const driverPricing = getDriverPricingForParcel(parcelType);
 
             if (driverPricing) {
@@ -242,12 +276,13 @@ const Earnings = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (t
               // Add urgent bonus if applicable
               if (parcel.isUrgent && driverPricing.urgentDeliveryBonus > 0) {
                 parcelEarnings += driverPricing.urgentDeliveryBonus;
+                console.log(`🚨 Urgent bonus added: Rs. ${driverPricing.urgentDeliveryBonus}`);
               }
 
               totalAmount += parcelEarnings;
               deliveryCount++;
               
-              console.log(`💰 Consolidation parcel ${parcel.trackingNumber} (${parcelType}): Rs. ${parcelEarnings.toFixed(2)}`);
+              console.log(`💰 Consolidation parcel earnings - Base: Rs. ${driverPricing.driverBaseEarning}, Distance(${distancePerParcel.toFixed(2)}km): Rs. ${(distancePerParcel * driverPricing.driverEarningPerKm).toFixed(2)}, Weight(${weight}kg): Rs. ${(weight * driverPricing.driverEarningPerKg).toFixed(2)}, Total: Rs. ${parcelEarnings.toFixed(2)}`);
             } else {
               console.warn(`⚠️ No pricing found for parcel ${parcel.trackingNumber} type ${parcelType}`);
             }
@@ -257,8 +292,21 @@ const Earnings = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (t
 
       // Calculate earnings from individual delivered parcels
       periodParcels.forEach((parcel) => {
-        // Get parcel type from pricingId
-        const parcelType = parcel.pricingId?.parcelType || "Standard";
+        // Get parcel type from pricingId - handle both populated and string pricingId
+        let parcelType = "Standard"; // Default
+        
+        if (parcel.pricingId) {
+          if (typeof parcel.pricingId === 'string') {
+            // If pricingId is just a string, we need to match it or use default
+            parcelType = "Standard";
+          } else if (parcel.pricingId.parcelType) {
+            // If pricingId is populated with full object
+            parcelType = parcel.pricingId.parcelType;
+          }
+        }
+        
+        console.log(`📦 Processing individual parcel ${parcel.trackingNumber}, type: ${parcelType}`);
+        
         const driverPricing = getDriverPricingForParcel(parcelType);
 
         if (driverPricing) {
@@ -273,13 +321,14 @@ const Earnings = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (t
           // Add urgent bonus if applicable
           if (parcel.isUrgent && driverPricing.urgentDeliveryBonus > 0) {
             parcelEarnings += driverPricing.urgentDeliveryBonus;
+            console.log(`🚨 Urgent bonus added: Rs. ${driverPricing.urgentDeliveryBonus}`);
           }
 
           totalAmount += parcelEarnings;
           totalDistance += estimatedDistance;
           deliveryCount++;
           
-          console.log(`💰 Individual parcel ${parcel.trackingNumber} (${parcelType}): Rs. ${parcelEarnings.toFixed(2)}`);
+          console.log(`💰 Individual parcel earnings - Base: Rs. ${driverPricing.driverBaseEarning}, Distance(${estimatedDistance}km): Rs. ${(estimatedDistance * driverPricing.driverEarningPerKm).toFixed(2)}, Weight(${weight}kg): Rs. ${(weight * driverPricing.driverEarningPerKg).toFixed(2)}, Total: Rs. ${parcelEarnings.toFixed(2)}`);
         } else {
           console.warn(`⚠️ No pricing found for parcel ${parcel.trackingNumber} type ${parcelType}`);
         }

@@ -141,32 +141,36 @@ const DeliveryHistory = ({ userId, setActiveTab }: { userId?: string; setActiveT
         console.log("📦 Total parcels fetched:", parcels.length);
         console.log("🚗 Current Driver ID:", driverId);
 
-        // Filter completed consolidation deliveries
+        // Filter completed consolidation deliveries for this driver
         const completedDeliveries = deliveries.filter((d: Delivery) => {
           const isCompleted = d.status === "completed";
-          const driverIdMatch = d.driverId === driverId || d.driverId?._id === driverId;
+          // Handle both string and object driverId
+          const deliveryDriverId = typeof d.driverId === 'string' ? d.driverId : d.driverId?._id;
+          const driverIdMatch = deliveryDriverId === driverId;
           
           if (isCompleted && driverIdMatch) {
-            console.log("✅ Completed consolidation delivery:", d._id);
+            console.log("✅ Completed consolidation delivery:", d._id, "Driver:", deliveryDriverId);
           }
           
           return isCompleted && driverIdMatch;
         });
 
-        // Filter delivered parcels
+        // Filter delivered parcels for this driver
         const deliveredParcels = parcels.filter((p: any) => {
           const isDelivered = p.status === "delivered";
-          const driverIdMatch = p.assignedDriver === driverId || p.assignedDriver?._id === driverId;
+          // Handle both string and object assignedDriver
+          const parcelDriverId = typeof p.assignedDriver === 'string' ? p.assignedDriver : p.assignedDriver?._id;
+          const driverIdMatch = parcelDriverId === driverId;
           
           if (isDelivered && driverIdMatch) {
-            console.log("✅ Delivered parcel:", p.trackingNumber);
+            console.log("✅ Delivered parcel:", p.trackingNumber, "Driver:", parcelDriverId);
           }
           
           return isDelivered && driverIdMatch;
         });
 
-        console.log("✅ Total completed consolidation deliveries:", completedDeliveries.length);
-        console.log("✅ Total delivered individual parcels:", deliveredParcels.length);
+        console.log("✅ Total completed consolidation deliveries for this driver:", completedDeliveries.length);
+        console.log("✅ Total delivered individual parcels for this driver:", deliveredParcels.length);
         
         const dailyStats = processDeliveryHistory(completedDeliveries, deliveredParcels);
         setHistory(dailyStats);
@@ -312,8 +316,9 @@ const DeliveryHistory = ({ userId, setActiveTab }: { userId?: string; setActiveT
           deliveries: totalDeliveryCount,
           distance: Math.round(totalDistance * 10) / 10,
           earnings: Math.round(totalEarnings * 100) / 100,
-          deliveryData: dayDeliveries, // Keep consolidation deliveries for detail view
-          parcelData: dayParcels, // Store individual parcels separately
+          avgRating: 0,
+          deliveryData: dayDeliveries,
+          parcelData: dayParcels,
         };
       })
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -347,7 +352,6 @@ const DeliveryHistory = ({ userId, setActiveTab }: { userId?: string; setActiveT
         day.deliveries,
         day.distance,
         day.earnings,
-        
       ]),
     ]
       .map((row) => row.join(","))
@@ -473,7 +477,6 @@ const DeliveryHistory = ({ userId, setActiveTab }: { userId?: string; setActiveT
                 <th className="p-4 text-white font-semibold">Deliveries</th>
                 <th className="p-4 text-white font-semibold">Distance</th>
                 <th className="p-4 text-white font-semibold">Earnings</th>
-                
                 <th className="p-4 text-white font-semibold">Actions</th>
               </tr>
             </thead>
@@ -489,7 +492,6 @@ const DeliveryHistory = ({ userId, setActiveTab }: { userId?: string; setActiveT
                   <td className="p-4 text-gray-400">{day.deliveries}</td>
                   <td className="p-4 text-gray-400">{day.distance} km</td>
                   <td className="p-4 text-green-400 font-semibold">Rs. {day.earnings.toFixed(2)}</td>
-                  
                   <td className="p-4">
                     <button
                       onClick={() => setSelectedDay(day)}
