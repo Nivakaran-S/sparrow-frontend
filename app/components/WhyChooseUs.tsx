@@ -2,7 +2,7 @@
 
 export default function WhyChooseUs() {
     return(
-        <section className="px-8 py-20 bg-gradient-to-t flex flex-row items-center justify-center from-[#808080] to-white   border-t border-[#333333]">
+        <section className="px-8 py-20 bg-gradient-to-t flex flex-row items-center justify-center from-[#808080] to-white   ">
         <div className="flex flex-row items-center w-[80vw] space-x-[50px]">
           <h2 className="text-5xl font-bold text-[#101010] text-center mb-16">The Sparrow Advantage</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 gap-12 max-w-[1200px] mx-auto">

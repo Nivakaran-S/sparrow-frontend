@@ -11,7 +11,7 @@ export default function Track() {
               <div className="h-[11vh]">
 
             </div>
-            <div className="flex flex-row bg-gradient-to-b from-[#808080]  to-white h-[89vh] flex-col  items-center justify-center ">
+            <div className="flex flex-col space-y-[20px] text-center bg-gradient-to-b from-[#808080]  to-white h-[89vh] flex-col  items-center justify-center ">
                 <div className="w-[35vw]">
                     <p className="leading-[60px] text-[3.3rem] text-[#101010] ">Track Every Parcel in Real Time With Ease</p>
                 </div>

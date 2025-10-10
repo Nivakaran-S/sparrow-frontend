@@ -49,9 +49,7 @@ export default function Home() {
       
 
   
-      <div className="h-[50vh] bg-black">
-
-      </div>
+      
       {/* Features Highlight */}
       <WhyChooseUs/>
 

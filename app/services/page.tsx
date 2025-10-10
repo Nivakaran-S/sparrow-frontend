@@ -10,7 +10,7 @@ export default function Services() {
             <div className="h-[11vh]">
 
             </div>
-            <div className="flex flex-col text-center  md:flex-row bg-gradient-to-b from-[#808080]  to-white h-[89vh] flex-col  items-center justify-center ">
+            <div className="flex flex-col text-center  space-y-[20px] bg-gradient-to-b from-[#808080]  to-white h-[89vh] flex-col  items-center justify-center ">
                 <div className="w-[35vw]">
                     <p className="leading-[60px]  text-[3.2rem] text-black  flex flex-col ">
                         All-in-One Parcel Consolidation, Made Simple
