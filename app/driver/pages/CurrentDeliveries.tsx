@@ -3,13 +3,6 @@ import { Package, MapPin, Phone, Navigation, CheckCircle, Clock, Truck } from "l
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || "https://api-gateway-nine-orpin.vercel.app";
 
-interface Location {
-  latitude: number;
-  longitude: number;
-  address: string;
-  timestamp?: Date | string;
-}
-
 interface Parcel {
   _id: string;
   trackingNumber: string;
@@ -22,6 +15,10 @@ interface Parcel {
     value: number;
     unit: string;
   };
+  pricingId?: {
+    _id: string;
+    parcelType: string;
+  };
 }
 
 interface Consolidation {
@@ -30,7 +27,7 @@ interface Consolidation {
   referenceCode: string;
   parcels?: Parcel[];
   status: string;
-  statusHistory?: any[];
+  assignedDriver?: string;
 }
 
 interface Delivery {
@@ -40,19 +37,15 @@ interface Delivery {
   status: "assigned" | "in_progress" | "completed" | "cancelled";
   startTime?: Date | string;
   endTime?: Date | string;
-  startLocation?: Location;
-  endLocation?: Location;
-  currentLocation?: Location;
-  locationHistory?: Location[];
   estimatedDeliveryTime?: Date | string;
   actualDeliveryTime?: Date | string;
   notes?: string;
   createdTimestamp: Date | string;
-  updatedTimestamp: Date | string;
 }
 
 const CurrentDeliveries = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (tab: string) => void }) => {
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
+  const [parcels, setParcels] = useState<Parcel[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
@@ -64,8 +57,8 @@ const CurrentDeliveries = ({ userId, setActiveTab }: { userId?: string; setActiv
 
   useEffect(() => {
     if (driverId) {
-      fetchDeliveries();
-      const interval = setInterval(fetchDeliveries, 30000);
+      fetchAllData();
+      const interval = setInterval(fetchAllData, 30000);
       return () => clearInterval(interval);
     }
   }, [driverId]);
@@ -90,31 +83,58 @@ const CurrentDeliveries = ({ userId, setActiveTab }: { userId?: string; setActiv
     }
   };
 
-  const fetchDeliveries = async () => {
+  const fetchAllData = async () => {
     if (!driverId) return;
 
     try {
       setLoading(true);
-      const response = await fetch(
-        `${API_BASE_URL}/api/consolidations/api/deliveries/driver/${driverId}?status=assigned&status=in_progress`,
-        { credentials: "include" }
-      );
-
-      if (!response.ok) throw new Error("Failed to fetch deliveries");
-
-      const result = await response.json();
-
-      if (result.success) {
-        const activeDeliveries = result.data.filter(
-          (d: Delivery) => d.status === "assigned" || d.status === "in_progress"
-        );
-        setDeliveries(activeDeliveries);
-      }
+      await Promise.all([fetchDeliveries(), fetchAssignedParcels()]);
     } catch (err: any) {
-      console.error("Error fetching deliveries:", err);
+      console.error("Error fetching data:", err);
       setError(err.message || "Unknown error");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchDeliveries = async () => {
+    if (!driverId) return;
+
+    const response = await fetch(
+      `${API_BASE_URL}/api/consolidations/api/deliveries/driver/${driverId}?status=assigned&status=in_progress`,
+      { credentials: "include" }
+    );
+
+    if (!response.ok) throw new Error("Failed to fetch deliveries");
+
+    const result = await response.json();
+
+    if (result.success) {
+      const activeDeliveries = result.data.filter(
+        (d: Delivery) => d.status === "assigned" || d.status === "in_progress"
+      );
+      setDeliveries(activeDeliveries);
+    }
+  };
+
+  const fetchAssignedParcels = async () => {
+    if (!driverId) return;
+
+    const response = await fetch(
+      `${API_BASE_URL}/api/parcels/api/parcels/driver/${driverId}`,
+      { credentials: "include" }
+    );
+
+    if (!response.ok) throw new Error("Failed to fetch assigned parcels");
+
+    const result = await response.json();
+
+    if (result.success) {
+      // Filter only active parcels (not delivered or cancelled)
+      const activeParcels = result.data.filter(
+        (p: Parcel) => !["delivered", "cancelled"].includes((p as any).status)
+      );
+      setParcels(activeParcels);
     }
   };
 
@@ -157,9 +177,7 @@ const CurrentDeliveries = ({ userId, setActiveTab }: { userId?: string; setActiv
       const result = await response.json();
 
       if (result.success) {
-        setDeliveries((prev) =>
-          prev.map((d) => (d._id === deliveryId ? result.data : d))
-        );
+        await fetchAllData();
         alert("Delivery started successfully!");
       }
     } catch (err: any) {
@@ -191,7 +209,7 @@ const CurrentDeliveries = ({ userId, setActiveTab }: { userId?: string; setActiv
 
       if (!response.ok) throw new Error("Failed to update location");
       alert("Location updated successfully");
-      await fetchDeliveries();
+      await fetchAllData();
     } catch (err: any) {
       console.error("Error updating location:", err);
       alert("Failed to update location: " + err.message);
@@ -226,7 +244,7 @@ const CurrentDeliveries = ({ userId, setActiveTab }: { userId?: string; setActiv
       const result = await response.json();
 
       if (result.success) {
-        setDeliveries((prev) => prev.filter((d) => d._id !== deliveryId));
+        await fetchAllData();
         alert("Delivery completed successfully!");
       }
     } catch (err: any) {
@@ -237,74 +255,73 @@ const CurrentDeliveries = ({ userId, setActiveTab }: { userId?: string; setActiv
     }
   };
 
-  const openNavigation = (delivery: Delivery): void => {
-    const consolidation = delivery.consolidationId;
-    
-    // Try to get destination from first parcel's receiver address
-    if (consolidation?.parcels && consolidation.parcels.length > 0) {
-      const firstParcel = consolidation.parcels[0];
-      if (firstParcel.receiver?.address) {
-        const address = encodeURIComponent(firstParcel.receiver.address);
-        window.open(`https://www.google.com/maps/dir/?api=1&destination=${address}`, "_blank");
-        return;
-      }
-    }
-    
-    // Fallback to current location if available
-    if (delivery.currentLocation?.latitude && delivery.currentLocation?.longitude) {
-      window.open(
-        `https://www.google.com/maps/dir/?api=1&destination=${delivery.currentLocation.latitude},${delivery.currentLocation.longitude}`,
-        "_blank"
+  const markParcelDelivered = async (parcelId: string): Promise<void> => {
+    if (!confirm("Are you sure you want to mark this parcel as delivered?")) return;
+
+    try {
+      const position = await getCurrentPosition();
+      const { latitude, longitude } = position.coords;
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/parcels/api/parcels/${parcelId}/status`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            status: "delivered",
+            location: `${latitude},${longitude}`,
+            note: "Delivered by driver"
+          }),
+        }
       );
-      return;
+
+      if (!response.ok) throw new Error("Failed to update parcel status");
+
+      alert("Parcel marked as delivered!");
+      await fetchAllData();
+    } catch (err: any) {
+      console.error("Error updating parcel:", err);
+      alert("Failed to update parcel: " + err.message);
     }
-    
-    alert("No destination address available for navigation");
   };
 
-  const callCustomer = (delivery: Delivery): void => {
-    const consolidation = delivery.consolidationId;
-    if (consolidation?.parcels && consolidation.parcels.length > 0) {
-      const firstParcel = consolidation.parcels[0];
-      if (firstParcel.receiver?.phoneNumber) {
-        window.location.href = `tel:${firstParcel.receiver.phoneNumber}`;
-        return;
+  const openNavigation = (delivery?: Delivery, parcel?: Parcel): void => {
+    let address = null;
+
+    if (delivery) {
+      const consolidation = delivery.consolidationId;
+      if (consolidation?.parcels && consolidation.parcels.length > 0) {
+        address = consolidation.parcels[0].receiver?.address;
       }
+    } else if (parcel) {
+      address = parcel.receiver?.address;
     }
-    alert("Customer contact number not available");
-  };
 
-  const getPriorityLevel = (delivery: Delivery): "High" | "Medium" | "Low" => {
-    if (delivery.status === "in_progress") return "High";
-    if (delivery.estimatedDeliveryTime) {
-      const eta = new Date(delivery.estimatedDeliveryTime).getTime();
-      const now = Date.now();
-      const hoursUntilDelivery = (eta - now) / (1000 * 60 * 60);
-      if (hoursUntilDelivery < 2) return "High";
-      if (hoursUntilDelivery < 6) return "Medium";
-    }
-    return "Low";
-  };
-
-  const getStatusColor = (status: string): string => {
-    switch (status) {
-      case "in_progress":
-        return "bg-green-500/20 text-green-400 border-green-500/50";
-      case "assigned":
-        return "bg-blue-500/20 text-blue-400 border-blue-500/50";
-      default:
-        return "bg-amber-500/20 text-amber-400 border-amber-500/50";
+    if (address) {
+      const encoded = encodeURIComponent(address);
+      window.open(`https://www.google.com/maps/dir/?api=1&destination=${encoded}`, "_blank");
+    } else {
+      alert("No destination address available for navigation");
     }
   };
 
-  const getPriorityColor = (priority: string): string => {
-    switch (priority) {
-      case "High":
-        return "bg-red-500/20 text-red-400 border-red-500/50";
-      case "Medium":
-        return "bg-yellow-500/20 text-yellow-400 border-yellow-500/50";
-      default:
-        return "bg-gray-500/20 text-gray-400 border-gray-500/50";
+  const callCustomer = (delivery?: Delivery, parcel?: Parcel): void => {
+    let phoneNumber = null;
+
+    if (delivery) {
+      const consolidation = delivery.consolidationId;
+      if (consolidation?.parcels && consolidation.parcels.length > 0) {
+        phoneNumber = consolidation.parcels[0].receiver?.phoneNumber;
+      }
+    } else if (parcel) {
+      phoneNumber = parcel.receiver?.phoneNumber;
+    }
+
+    if (phoneNumber) {
+      window.location.href = `tel:${phoneNumber}`;
+    } else {
+      alert("Customer contact number not available");
     }
   };
 
@@ -336,7 +353,9 @@ const CurrentDeliveries = ({ userId, setActiveTab }: { userId?: string; setActiv
       </div>
     );
 
-  if (deliveries.length === 0)
+  const totalActiveItems = deliveries.length + parcels.length;
+
+  if (totalActiveItems === 0)
     return (
       <div className="max-w-6xl mx-auto">
         <h2 className="text-3xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent mb-8">
@@ -351,7 +370,7 @@ const CurrentDeliveries = ({ userId, setActiveTab }: { userId?: string; setActiv
             You don't have any deliveries assigned at the moment.
           </p>
           <button
-            onClick={fetchDeliveries}
+            onClick={fetchAllData}
             className="mt-4 bg-blue-600 cursor-pointer text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-all"
           >
             Refresh
@@ -368,7 +387,7 @@ const CurrentDeliveries = ({ userId, setActiveTab }: { userId?: string; setActiv
         </h2>
         <div className="flex items-center gap-4">
           <button
-            onClick={fetchDeliveries}
+            onClick={fetchAllData}
             className="text-gray-400 hover:text-white transition-colors"
             title="Refresh"
           >
@@ -377,18 +396,17 @@ const CurrentDeliveries = ({ userId, setActiveTab }: { userId?: string; setActiv
             </svg>
           </button>
           <div className="text-gray-400">
-            {deliveries.length} active{" "}
-            {deliveries.length === 1 ? "delivery" : "deliveries"}
+            {totalActiveItems} active {totalActiveItems === 1 ? "item" : "items"}
           </div>
         </div>
       </div>
 
       <div className="space-y-6">
+        {/* Consolidation Deliveries */}
         {deliveries.map((delivery) => {
           const consolidation = delivery.consolidationId;
-          const priority = getPriorityLevel(delivery);
           const isUpdating = updatingStatus === delivery._id;
-          const parcels = consolidation?.parcels || [];
+          const consolidationParcels = consolidation?.parcels || [];
 
           return (
             <div
@@ -398,35 +416,26 @@ const CurrentDeliveries = ({ userId, setActiveTab }: { userId?: string; setActiv
               <div className="flex justify-between items-start mb-4">
                 <div>
                   <div className="text-blue-400 font-semibold text-lg mb-1">
-                    {consolidation?.masterTrackingNumber || `DEL-${delivery._id.slice(-6)}`}
+                    {consolidation?.masterTrackingNumber || `CON-${delivery._id.slice(-6)}`}
                   </div>
                   <div className="text-sm text-gray-500">
                     Ref: {consolidation?.referenceCode || "N/A"}
                   </div>
+                  <div className="text-xs text-purple-400 mt-1">Consolidation Delivery</div>
                 </div>
-                <div className="flex gap-2">
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs font-semibold border ${getStatusColor(
-                      delivery.status
-                    )}`}
-                  >
-                    {formatStatus(delivery.status)}
-                  </span>
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs font-semibold border ${getPriorityColor(
-                      priority
-                    )}`}
-                  >
-                    {priority}
-                  </span>
-                </div>
+                <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${
+                  delivery.status === "in_progress" 
+                    ? "bg-green-500/20 text-green-400 border-green-500/50"
+                    : "bg-blue-500/20 text-blue-400 border-blue-500/50"
+                }`}>
+                  {formatStatus(delivery.status)}
+                </span>
               </div>
 
-              {/* Delivery Details */}
               <div className="grid grid-cols-2 gap-4 mb-4">
                 <div className="flex items-center gap-2 text-gray-400">
                   <Package className="w-4 h-4" />
-                  <span>{parcels.length} Parcel{parcels.length !== 1 ? 's' : ''}</span>
+                  <span>{consolidationParcels.length} Parcel{consolidationParcels.length !== 1 ? 's' : ''}</span>
                 </div>
                 <div className="flex items-center gap-2 text-gray-400">
                   <Clock className="w-4 h-4" />
@@ -438,15 +447,14 @@ const CurrentDeliveries = ({ userId, setActiveTab }: { userId?: string; setActiv
                 </div>
               </div>
 
-              {/* Parcels List */}
-              {parcels.length > 0 && (
+              {consolidationParcels.length > 0 && (
                 <div className="mb-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700">
                   <h4 className="text-gray-300 font-medium mb-3 flex items-center gap-2">
                     <Package className="w-4 h-4" />
-                    Parcels in this delivery:
+                    Parcels in this consolidation:
                   </h4>
                   <div className="space-y-2">
-                    {parcels.map((parcel, idx) => (
+                    {consolidationParcels.map((parcel, idx) => (
                       <div key={parcel._id} className="flex items-center justify-between text-sm">
                         <div className="flex items-center gap-3">
                           <span className="text-gray-500">#{idx + 1}</span>
@@ -468,25 +476,16 @@ const CurrentDeliveries = ({ userId, setActiveTab }: { userId?: string; setActiv
                 </div>
               )}
 
-              {/* Destination Info */}
-              {parcels.length > 0 && parcels[0].receiver?.address && (
+              {consolidationParcels.length > 0 && consolidationParcels[0].receiver?.address && (
                 <div className="mb-4 flex items-start gap-2 text-gray-400">
                   <MapPin className="w-4 h-4 mt-1 flex-shrink-0" />
                   <div>
                     <div className="font-medium text-gray-300">Destination</div>
-                    <div className="text-sm">{parcels[0].receiver.address}</div>
+                    <div className="text-sm">{consolidationParcels[0].receiver.address}</div>
                   </div>
                 </div>
               )}
 
-              {/* Location Update */}
-              {delivery.currentLocation?.timestamp && (
-                <div className="mb-4 text-sm text-gray-500">
-                  Last location update: {new Date(delivery.currentLocation.timestamp).toLocaleString()}
-                </div>
-              )}
-
-              {/* Action Buttons */}
               <div className="flex flex-wrap gap-2">
                 {delivery.status === "assigned" && (
                   <button
@@ -538,6 +537,78 @@ const CurrentDeliveries = ({ userId, setActiveTab }: { userId?: string; setActiv
             </div>
           );
         })}
+
+        {/* Individual Parcels */}
+        {parcels.map((parcel) => (
+          <div
+            key={parcel._id}
+            className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6 hover:-translate-y-1 hover:border-green-400 transition-all"
+          >
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <div className="text-green-400 font-semibold text-lg mb-1">
+                  {parcel.trackingNumber}
+                </div>
+                <div className="text-sm text-gray-500">
+                  Type: {parcel.pricingId?.parcelType || "Standard"}
+                </div>
+                <div className="text-xs text-green-400 mt-1">Individual Parcel</div>
+              </div>
+              <span className="px-3 py-1 rounded-full text-xs font-semibold border bg-amber-500/20 text-amber-400 border-amber-500/50">
+                Assigned
+              </span>
+            </div>
+
+            {parcel.receiver && (
+              <div className="mb-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700">
+                <h4 className="text-gray-300 font-medium mb-2">Receiver Details</h4>
+                <div className="space-y-1 text-sm">
+                  {parcel.receiver.name && (
+                    <div className="text-gray-400">Name: <span className="text-white">{parcel.receiver.name}</span></div>
+                  )}
+                  {parcel.receiver.phoneNumber && (
+                    <div className="text-gray-400">Phone: <span className="text-white">{parcel.receiver.phoneNumber}</span></div>
+                  )}
+                  {parcel.receiver.address && (
+                    <div className="text-gray-400">Address: <span className="text-white">{parcel.receiver.address}</span></div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {parcel.weight && (
+              <div className="mb-4 text-sm text-gray-400">
+                Weight: <span className="text-white">{parcel.weight.value} {parcel.weight.unit}</span>
+              </div>
+            )}
+
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => markParcelDelivered(parcel._id)}
+                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 hover:-translate-y-1 transition-all flex items-center gap-2"
+              >
+                <CheckCircle className="w-4 h-4" />
+                Mark Delivered
+              </button>
+
+              <button
+                onClick={() => openNavigation(undefined, parcel)}
+                className="bg-gray-600 text-gray-200 px-4 py-2 rounded-lg border border-gray-500 hover:bg-gray-500 hover:-translate-y-1 transition-all flex items-center gap-2"
+              >
+                <Navigation className="w-4 h-4" />
+                Navigate
+              </button>
+
+              <button
+                onClick={() => callCustomer(undefined, parcel)}
+                className="bg-gray-600 text-gray-200 px-4 py-2 rounded-lg border border-gray-500 hover:bg-gray-500 hover:-translate-y-1 transition-all flex items-center gap-2"
+              >
+                <Phone className="w-4 h-4" />
+                Call Customer
+              </button>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );

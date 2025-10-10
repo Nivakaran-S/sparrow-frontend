@@ -9,12 +9,24 @@ interface EarningsData {
   month: { amount: number; deliveries: number; distance: number };
 }
 
+interface DriverPricing {
+  _id: string;
+  parcelType: string;
+  driverBaseEarning: number;
+  driverEarningPerKm: number;
+  driverEarningPerKg: number;
+  urgentDeliveryBonus: number;
+  commissionPercentage: number;
+  isActive: boolean;
+}
+
 const Earnings = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (tab: string) => void }) => {
   const [earnings, setEarnings] = useState<EarningsData>({
     today: { amount: 0, deliveries: 0, distance: 0 },
     week: { amount: 0, deliveries: 0, distance: 0 },
     month: { amount: 0, deliveries: 0, distance: 0 },
   });
+  const [driverPricings, setDriverPricings] = useState<DriverPricing[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [driverId, setDriverId] = useState<string | null>(null);
@@ -25,8 +37,8 @@ const Earnings = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (t
 
   useEffect(() => {
     if (driverId) {
-      fetchEarningsData();
-      const interval = setInterval(fetchEarningsData, 300000); // Refresh every 5 minutes
+      fetchAllData();
+      const interval = setInterval(fetchAllData, 60000);
       return () => clearInterval(interval);
     }
   }, [driverId]);
@@ -53,6 +65,30 @@ const Earnings = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (t
     }
   };
 
+  const fetchAllData = async () => {
+    await Promise.all([fetchDriverPricings(), fetchEarningsData()]);
+  };
+
+  const fetchDriverPricings = async () => {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/pricing/api/pricing-driver?isActive=true`,
+        { credentials: "include" }
+      );
+
+      if (!response.ok) throw new Error("Failed to fetch driver pricing");
+
+      const data = await response.json();
+
+      if (data.success) {
+        setDriverPricings(data.data || []);
+        console.log("💰 Driver pricings loaded:", data.data.length);
+      }
+    } catch (err: any) {
+      console.error("Error fetching driver pricings:", err);
+    }
+  };
+
   const fetchEarningsData = async () => {
     if (!driverId) return;
 
@@ -60,18 +96,35 @@ const Earnings = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (t
       setLoading(true);
       setError(null);
 
-      const response = await fetch(
+      // Fetch consolidation deliveries
+      const deliveriesResponse = await fetch(
         `${API_BASE_URL}/api/consolidations/api/deliveries/driver/${driverId}`,
         { credentials: "include" }
       );
 
-      if (!response.ok) throw new Error("Failed to fetch earnings data");
+      if (!deliveriesResponse.ok) throw new Error("Failed to fetch deliveries");
 
-      const data = await response.json();
+      const deliveriesData = await deliveriesResponse.json();
 
-      if (data.success) {
-        const deliveries = data.data;
-        const calculatedEarnings = calculateEarnings(deliveries);
+      // Fetch individual parcels
+      const parcelsResponse = await fetch(
+        `${API_BASE_URL}/api/parcels/api/parcels/driver/${driverId}`,
+        { credentials: "include" }
+      );
+
+      if (!parcelsResponse.ok) throw new Error("Failed to fetch parcels");
+
+      const parcelsData = await parcelsResponse.json();
+
+      if (deliveriesData.success && parcelsData.success) {
+        const deliveries = deliveriesData.data || [];
+        const parcels = parcelsData.data || [];
+        
+        console.log("📊 Total deliveries fetched:", deliveries.length);
+        console.log("📦 Total parcels fetched:", parcels.length);
+        console.log("🚗 Current Driver ID:", driverId);
+        
+        const calculatedEarnings = calculateEarnings(deliveries, parcels);
         setEarnings(calculatedEarnings);
       }
     } catch (err: any) {
@@ -82,57 +135,169 @@ const Earnings = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (t
     }
   };
 
-  const calculateEarnings = (deliveries: any[]): EarningsData => {
+  const getDriverPricingForParcel = (parcelType: string): DriverPricing | null => {
+    const pricing = driverPricings.find(dp => dp.parcelType === parcelType);
+    if (!pricing) {
+      console.warn(`⚠️ No driver pricing found for parcel type: ${parcelType}`);
+    }
+    return pricing || null;
+  };
+
+  const calculateEarnings = (deliveries: any[], parcels: any[]): EarningsData => {
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const weekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    const completedDeliveries = deliveries.filter((d) => d.status === "completed");
+    // Filter completed consolidation deliveries assigned to this driver
+    const completedDeliveries = deliveries.filter((d) => {
+      const isCompleted = d.status === "completed";
+      const isAssignedToMe = d.driverId === driverId || d.driverId?._id === driverId;
+      return isCompleted && isAssignedToMe;
+    });
+    
+    // Filter delivered parcels assigned to this driver
+    const deliveredParcels = parcels.filter((p) => {
+      const isDelivered = p.status === "delivered";
+      const isAssignedToMe = p.assignedDriver === driverId || p.assignedDriver?._id === driverId;
+      return isDelivered && isAssignedToMe;
+    });
 
+    console.log("✅ Completed consolidation deliveries for this driver:", completedDeliveries.length);
+    console.log("✅ Delivered individual parcels for this driver:", deliveredParcels.length);
+
+    // Filter by time periods
     const todayDeliveries = completedDeliveries.filter(
-      (d) => new Date(d.endTime || d.createdTimestamp) >= todayStart
+      (d) => new Date(d.endTime || d.actualDeliveryTime || d.updatedTimestamp) >= todayStart
     );
     const weekDeliveries = completedDeliveries.filter(
-      (d) => new Date(d.endTime || d.createdTimestamp) >= weekStart
+      (d) => new Date(d.endTime || d.actualDeliveryTime || d.updatedTimestamp) >= weekStart
     );
     const monthDeliveries = completedDeliveries.filter(
-      (d) => new Date(d.endTime || d.createdTimestamp) >= monthStart
+      (d) => new Date(d.endTime || d.actualDeliveryTime || d.updatedTimestamp) >= monthStart
     );
 
-    const calculatePeriodStats = (periodDeliveries: any[]) => {
-      let totalDistance = 0;
+    const todayParcels = deliveredParcels.filter((p) => {
+      const deliveryDate = p.statusHistory?.find((h: any) => h.status === "delivered")?.timestamp;
+      return deliveryDate ? new Date(deliveryDate) >= todayStart : false;
+    });
+    const weekParcels = deliveredParcels.filter((p) => {
+      const deliveryDate = p.statusHistory?.find((h: any) => h.status === "delivered")?.timestamp;
+      return deliveryDate ? new Date(deliveryDate) >= weekStart : false;
+    });
+    const monthParcels = deliveredParcels.filter((p) => {
+      const deliveryDate = p.statusHistory?.find((h: any) => h.status === "delivered")?.timestamp;
+      return deliveryDate ? new Date(deliveryDate) >= monthStart : false;
+    });
 
+    console.log("📅 Today:", todayDeliveries.length, "consolidations,", todayParcels.length, "parcels");
+    console.log("📅 This week:", weekDeliveries.length, "consolidations,", weekParcels.length, "parcels");
+    console.log("📅 This month:", monthDeliveries.length, "consolidations,", monthParcels.length, "parcels");
+
+    const calculatePeriodStats = (periodDeliveries: any[], periodParcels: any[]) => {
+      let totalDistance = 0;
+      let totalAmount = 0;
+      let deliveryCount = 0;
+
+      // Calculate earnings from consolidation deliveries
       periodDeliveries.forEach((delivery) => {
+        let deliveryDistance = 0;
+
+        // Calculate distance from location history
         if (delivery.locationHistory && delivery.locationHistory.length > 1) {
           const locations = delivery.locationHistory;
           for (let i = 1; i < locations.length; i++) {
-            const lat1 = locations[i - 1].latitude;
-            const lon1 = locations[i - 1].longitude;
-            const lat2 = locations[i].latitude;
-            const lon2 = locations[i].longitude;
-
-            if (lat1 && lon1 && lat2 && lon2) {
-              totalDistance += calculateDistance(lat1, lon1, lat2, lon2);
+            const loc1 = locations[i - 1];
+            const loc2 = locations[i];
+            if (loc1.latitude && loc1.longitude && loc2.latitude && loc2.longitude) {
+              deliveryDistance += calculateDistance(
+                loc1.latitude,
+                loc1.longitude,
+                loc2.latitude,
+                loc2.longitude
+              );
             }
           }
         }
+
+        totalDistance += deliveryDistance;
+
+        // Calculate earnings for each parcel in consolidation
+        const consolidation = delivery.consolidationId;
+        if (consolidation?.parcels && consolidation.parcels.length > 0) {
+          const distancePerParcel = deliveryDistance / consolidation.parcels.length;
+          
+          consolidation.parcels.forEach((parcel: any) => {
+            // Get parcel type from pricingId
+            const parcelType = parcel.pricingId?.parcelType || "Standard";
+            const driverPricing = getDriverPricingForParcel(parcelType);
+
+            if (driverPricing) {
+              const weight = parcel.weight?.value || 0;
+              
+              let parcelEarnings = driverPricing.driverBaseEarning;
+              parcelEarnings += distancePerParcel * driverPricing.driverEarningPerKm;
+              parcelEarnings += weight * driverPricing.driverEarningPerKg;
+              
+              // Add urgent bonus if applicable
+              if (parcel.isUrgent && driverPricing.urgentDeliveryBonus > 0) {
+                parcelEarnings += driverPricing.urgentDeliveryBonus;
+              }
+
+              totalAmount += parcelEarnings;
+              deliveryCount++;
+              
+              console.log(`💰 Consolidation parcel ${parcel.trackingNumber} (${parcelType}): Rs. ${parcelEarnings.toFixed(2)}`);
+            } else {
+              console.warn(`⚠️ No pricing found for parcel ${parcel.trackingNumber} type ${parcelType}`);
+            }
+          });
+        }
       });
 
-      // Earnings formula: Rs. 500 base per delivery + Rs. 45 per km
-      const amount = periodDeliveries.length * 500 + totalDistance * 45;
+      // Calculate earnings from individual delivered parcels
+      periodParcels.forEach((parcel) => {
+        // Get parcel type from pricingId
+        const parcelType = parcel.pricingId?.parcelType || "Standard";
+        const driverPricing = getDriverPricingForParcel(parcelType);
+
+        if (driverPricing) {
+          const weight = parcel.weight?.value || 0;
+          // For individual parcels without location tracking, estimate distance
+          const estimatedDistance = 5; // 5 km average
+          
+          let parcelEarnings = driverPricing.driverBaseEarning;
+          parcelEarnings += estimatedDistance * driverPricing.driverEarningPerKm;
+          parcelEarnings += weight * driverPricing.driverEarningPerKg;
+          
+          // Add urgent bonus if applicable
+          if (parcel.isUrgent && driverPricing.urgentDeliveryBonus > 0) {
+            parcelEarnings += driverPricing.urgentDeliveryBonus;
+          }
+
+          totalAmount += parcelEarnings;
+          totalDistance += estimatedDistance;
+          deliveryCount++;
+          
+          console.log(`💰 Individual parcel ${parcel.trackingNumber} (${parcelType}): Rs. ${parcelEarnings.toFixed(2)}`);
+        } else {
+          console.warn(`⚠️ No pricing found for parcel ${parcel.trackingNumber} type ${parcelType}`);
+        }
+      });
+
+      console.log(`📊 Period total - Deliveries: ${deliveryCount}, Amount: Rs. ${totalAmount.toFixed(2)}, Distance: ${totalDistance.toFixed(1)} km`);
 
       return {
-        amount: Math.round(amount * 100) / 100,
-        deliveries: periodDeliveries.length,
+        amount: Math.round(totalAmount * 100) / 100,
+        deliveries: deliveryCount,
         distance: Math.round(totalDistance * 10) / 10,
       };
     };
 
     return {
-      today: calculatePeriodStats(todayDeliveries),
-      week: calculatePeriodStats(weekDeliveries),
-      month: calculatePeriodStats(monthDeliveries),
+      today: calculatePeriodStats(todayDeliveries, todayParcels),
+      week: calculatePeriodStats(weekDeliveries, weekParcels),
+      month: calculatePeriodStats(monthDeliveries, monthParcels),
     };
   };
 
@@ -142,7 +307,7 @@ const Earnings = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (t
     lat2: number,
     lon2: number
   ): number => {
-    const R = 6371;
+    const R = 6371; // Earth's radius in km
     const dLat = toRad(lat2 - lat1);
     const dLon = toRad(lon2 - lon1);
     const a =
@@ -175,8 +340,8 @@ const Earnings = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (t
         <div className="bg-red-500/10 border border-red-500 rounded-xl p-6 text-center">
           <p className="text-red-400 mb-4">Error: {error}</p>
           <button
-            onClick={fetchEarningsData}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-all"
+            onClick={fetchAllData}
+            className="bg-blue-600 cursor-pointer text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-all"
           >
             Retry
           </button>
@@ -188,6 +353,16 @@ const Earnings = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (t
   const monthlyGoal = 50000;
   const monthlyProgress = (earnings.month.amount / monthlyGoal) * 100;
 
+  const avgBaseRate = driverPricings.length > 0
+    ? driverPricings.reduce((sum, dp) => sum + dp.driverBaseEarning, 0) / driverPricings.length
+    : 0;
+  const avgKmRate = driverPricings.length > 0
+    ? driverPricings.reduce((sum, dp) => sum + dp.driverEarningPerKm, 0) / driverPricings.length
+    : 0;
+  const avgKgRate = driverPricings.length > 0
+    ? driverPricings.reduce((sum, dp) => sum + dp.driverEarningPerKg, 0) / driverPricings.length
+    : 0;
+
   return (
     <div className="max-w-6xl mx-auto">
       <div className="flex justify-between items-center mb-8">
@@ -195,7 +370,7 @@ const Earnings = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (t
           Earnings & Payments
         </h2>
         <button
-          onClick={fetchEarningsData}
+          onClick={fetchAllData}
           className="text-gray-400 cursor-pointer hover:text-white transition-colors flex items-center gap-2"
           title="Refresh data"
         >
@@ -204,7 +379,6 @@ const Earnings = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (t
         </button>
       </div>
 
-      {/* Main Earnings Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         {[
           {
@@ -247,17 +421,17 @@ const Earnings = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (t
         ))}
       </div>
 
-      {/* Payment Breakdown */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6">
           <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
             <DollarSign className="w-5 h-5 text-green-400" />
-            Payment Breakdown
+            Payment Breakdown (Average Rates)
           </h3>
           <div className="space-y-4">
             {[
-              { label: "Base Rate per Delivery", value: "Rs. 500.00" },
-              { label: "Distance Bonus per km", value: "Rs. 45.00" },
+              { label: "Avg Base Rate per Delivery", value: `Rs. ${avgBaseRate.toFixed(2)}` },
+              { label: "Avg Distance Rate per km", value: `Rs. ${avgKmRate.toFixed(2)}` },
+              { label: "Avg Weight Rate per kg", value: `Rs. ${avgKgRate.toFixed(2)}` },
               {
                 label: "Average per Delivery",
                 value:
@@ -278,7 +452,6 @@ const Earnings = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (t
           </div>
         </div>
 
-        {/* Monthly Goal Progress */}
         <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6">
           <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
             <Target className="w-5 h-5 text-yellow-400" />
@@ -297,15 +470,56 @@ const Earnings = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (t
             </div>
             <div className="text-center mt-4">
               <div className="text-2xl font-bold text-white mb-1">
-                Rs. {(monthlyGoal - earnings.month.amount).toFixed(2)}
+                Rs. {Math.max(0, monthlyGoal - earnings.month.amount).toFixed(2)}
               </div>
-              <div className="text-gray-400 text-sm">Remaining to reach goal</div>
+              <div className="text-gray-400 text-sm">
+                {monthlyProgress >= 100 ? "Goal Achieved! 🎉" : "Remaining to reach goal"}
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Earnings Insights */}
+      {driverPricings.length > 0 && (
+        <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6 mb-8">
+          <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            <Package className="w-5 h-5 text-blue-400" />
+            Your Earning Rates by Parcel Type
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {driverPricings.map((pricing) => (
+              <div key={pricing._id} className="bg-gray-900/50 rounded-lg p-4 border border-gray-700 hover:border-blue-500 transition-all">
+                <div className="text-blue-400 font-semibold mb-3">{pricing.parcelType}</div>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between text-gray-400">
+                    <span>Base Earning:</span>
+                    <span className="text-white font-semibold">Rs. {pricing.driverBaseEarning.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-gray-400">
+                    <span>Per KM:</span>
+                    <span className="text-white font-semibold">Rs. {pricing.driverEarningPerKm.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-gray-400">
+                    <span>Per KG:</span>
+                    <span className="text-white font-semibold">Rs. {pricing.driverEarningPerKg.toFixed(2)}</span>
+                  </div>
+                  {pricing.urgentDeliveryBonus > 0 && (
+                    <div className="flex justify-between text-gray-400">
+                      <span>Urgent Bonus:</span>
+                      <span className="text-green-400 font-semibold">+Rs. {pricing.urgentDeliveryBonus.toFixed(2)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-gray-400 pt-2 border-t border-gray-700">
+                    <span>Commission:</span>
+                    <span className="text-yellow-400 font-semibold">{pricing.commissionPercentage}%</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6">
         <h3 className="text-lg font-semibold text-white mb-6 flex items-center gap-2">
           <TrendingUp className="w-5 h-5 text-blue-400" />
@@ -356,19 +570,16 @@ const Earnings = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (t
           <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700">
             <div className="flex items-center gap-3 mb-2">
               <TrendingUp className="w-5 h-5 text-purple-400" />
-              <span className="text-gray-400 text-sm">Weekly Growth</span>
+              <span className="text-gray-400 text-sm">This Week</span>
             </div>
             <div className="text-xl font-bold text-white">
-              {earnings.week.deliveries > 0 && earnings.today.deliveries > 0
-                ? `+${((earnings.today.deliveries / (earnings.week.deliveries / 7)) * 100 - 100).toFixed(0)}%`
-                : "N/A"}
+              Rs. {earnings.week.amount.toFixed(2)}
             </div>
-            <div className="text-gray-500 text-xs mt-1">vs weekly average</div>
+            <div className="text-gray-500 text-xs mt-1">total earnings</div>
           </div>
         </div>
       </div>
 
-      {/* Additional Info */}
       <div className="mt-6 bg-blue-500/10 border border-blue-500/50 rounded-xl p-4">
         <div className="flex items-start gap-3">
           <div className="bg-blue-500/20 rounded-full p-2 flex-shrink-0">
@@ -377,8 +588,9 @@ const Earnings = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (t
           <div>
             <h4 className="text-blue-300 font-semibold mb-1">Payment Information</h4>
             <p className="text-gray-300 text-sm">
-              Earnings are calculated based on completed deliveries. Base rate of Rs. 500 per delivery plus Rs. 45 per kilometer traveled. 
-              Payments are processed weekly and deposited to your registered bank account.
+              Earnings are calculated in real-time based on completed deliveries and delivered parcels using the pricing structure for each parcel type. 
+              Your rates include base pay per delivery, distance-based earnings (per km), weight-based earnings (per kg), and urgent delivery bonuses when applicable. 
+              Payments are processed weekly and deposited to your registered bank account. All amounts shown are updated automatically when you complete deliveries.
             </p>
           </div>
         </div>

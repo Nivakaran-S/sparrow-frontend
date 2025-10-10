@@ -3,8 +3,20 @@ import { Package, Calendar, MapPin, DollarSign, Star, Download, TrendingUp } fro
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || "https://api-gateway-nine-orpin.vercel.app";
 
+interface DriverPricing {
+  _id: string;
+  parcelType: string;
+  driverBaseEarning: number;
+  driverEarningPerKm: number;
+  driverEarningPerKg: number;
+  urgentDeliveryBonus: number;
+  commissionPercentage: number;
+  isActive: boolean;
+}
+
 interface Delivery {
   _id: string;
+  driverId: any;
   consolidationId?: {
     referenceCode: string;
     masterTrackingNumber?: string;
@@ -18,6 +30,8 @@ interface Delivery {
   locationHistory?: any[];
   notes?: string;
   createdTimestamp: string;
+  updatedTimestamp?: string;
+  actualDeliveryTime?: string;
 }
 
 interface DailyStats {
@@ -27,14 +41,16 @@ interface DailyStats {
   earnings: number;
   avgRating: number;
   deliveryData: Delivery[];
+  parcelData?: any[];
 }
 
 const DeliveryHistory = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (tab: string) => void }) => {
   const [history, setHistory] = useState<DailyStats[]>([]);
+  const [driverPricings, setDriverPricings] = useState<DriverPricing[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [driverId, setDriverId] = useState<string | null>(null);
-  const [timeFilter, setTimeFilter] = useState("7"); // days
+  const [timeFilter, setTimeFilter] = useState("7");
   const [selectedDay, setSelectedDay] = useState<DailyStats | null>(null);
 
   useEffect(() => {
@@ -43,7 +59,7 @@ const DeliveryHistory = ({ userId, setActiveTab }: { userId?: string; setActiveT
 
   useEffect(() => {
     if (driverId) {
-      fetchDeliveryHistory();
+      fetchAllData();
     }
   }, [driverId, timeFilter]);
 
@@ -68,26 +84,91 @@ const DeliveryHistory = ({ userId, setActiveTab }: { userId?: string; setActiveT
     }
   };
 
+  const fetchAllData = async () => {
+    await Promise.all([fetchDriverPricings(), fetchDeliveryHistory()]);
+  };
+
+  const fetchDriverPricings = async () => {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/pricing/api/pricing-driver?isActive=true`,
+        { credentials: "include" }
+      );
+
+      if (!response.ok) throw new Error("Failed to fetch driver pricing");
+
+      const data = await response.json();
+
+      if (data.success) {
+        setDriverPricings(data.data || []);
+      }
+    } catch (err: any) {
+      console.error("Error fetching driver pricings:", err);
+    }
+  };
+
   const fetchDeliveryHistory = async () => {
     if (!driverId) return;
 
     try {
       setLoading(true);
-      const response = await fetch(
+      
+      // Fetch consolidation deliveries
+      const deliveriesResponse = await fetch(
         `${API_BASE_URL}/api/consolidations/api/deliveries/driver/${driverId}`,
         { credentials: "include" }
       );
 
-      if (!response.ok) throw new Error("Failed to fetch delivery history");
+      if (!deliveriesResponse.ok) throw new Error("Failed to fetch delivery history");
 
-      const result = await response.json();
+      const deliveriesResult = await deliveriesResponse.json();
 
-      if (result.success) {
-        const completedDeliveries = result.data.filter(
-          (d: Delivery) => d.status === "completed"
-        );
+      // Fetch individual parcels
+      const parcelsResponse = await fetch(
+        `${API_BASE_URL}/api/parcels/api/parcels/driver/${driverId}`,
+        { credentials: "include" }
+      );
+
+      if (!parcelsResponse.ok) throw new Error("Failed to fetch parcels");
+
+      const parcelsResult = await parcelsResponse.json();
+
+      if (deliveriesResult.success && parcelsResult.success) {
+        const deliveries = deliveriesResult.data || [];
+        const parcels = parcelsResult.data || [];
+
+        console.log("📊 Total consolidation deliveries fetched:", deliveries.length);
+        console.log("📦 Total parcels fetched:", parcels.length);
+        console.log("🚗 Current Driver ID:", driverId);
+
+        // Filter completed consolidation deliveries
+        const completedDeliveries = deliveries.filter((d: Delivery) => {
+          const isCompleted = d.status === "completed";
+          const driverIdMatch = d.driverId === driverId || d.driverId?._id === driverId;
+          
+          if (isCompleted && driverIdMatch) {
+            console.log("✅ Completed consolidation delivery:", d._id);
+          }
+          
+          return isCompleted && driverIdMatch;
+        });
+
+        // Filter delivered parcels
+        const deliveredParcels = parcels.filter((p: any) => {
+          const isDelivered = p.status === "delivered";
+          const driverIdMatch = p.assignedDriver === driverId || p.assignedDriver?._id === driverId;
+          
+          if (isDelivered && driverIdMatch) {
+            console.log("✅ Delivered parcel:", p.trackingNumber);
+          }
+          
+          return isDelivered && driverIdMatch;
+        });
+
+        console.log("✅ Total completed consolidation deliveries:", completedDeliveries.length);
+        console.log("✅ Total delivered individual parcels:", deliveredParcels.length);
         
-        const dailyStats = processDeliveryHistory(completedDeliveries);
+        const dailyStats = processDeliveryHistory(completedDeliveries, deliveredParcels);
         setHistory(dailyStats);
       }
     } catch (err: any) {
@@ -98,37 +179,73 @@ const DeliveryHistory = ({ userId, setActiveTab }: { userId?: string; setActiveT
     }
   };
 
-  const processDeliveryHistory = (deliveries: Delivery[]): DailyStats[] => {
+  const getDriverPricingForParcel = (parcelType: string): DriverPricing | null => {
+    return driverPricings.find(dp => dp.parcelType === parcelType) || null;
+  };
+
+  const processDeliveryHistory = (deliveries: Delivery[], parcels: any[]): DailyStats[] => {
     const now = new Date();
     const daysAgo = parseInt(timeFilter);
     const startDate = new Date(now.getTime() - daysAgo * 24 * 60 * 60 * 1000);
 
-    // Filter deliveries within date range
+    // Filter consolidation deliveries within date range
     const filteredDeliveries = deliveries.filter((d) => {
-      const deliveryDate = new Date(d.endTime || d.createdTimestamp);
+      const deliveryDate = new Date(d.endTime || d.actualDeliveryTime || d.updatedTimestamp || d.createdTimestamp);
       return deliveryDate >= startDate;
     });
 
-    // Group by date
-    const groupedByDate = filteredDeliveries.reduce((acc: Record<string, Delivery[]>, delivery) => {
-      const date = new Date(delivery.endTime || delivery.createdTimestamp).toLocaleDateString();
-      if (!acc[date]) acc[date] = [];
-      acc[date].push(delivery);
-      return acc;
-    }, {});
+    // Filter individual parcels within date range
+    const filteredParcels = parcels.filter((p) => {
+      const deliveryDate = p.statusHistory?.find((h: any) => h.status === "delivered")?.timestamp;
+      return deliveryDate ? new Date(deliveryDate) >= startDate : false;
+    });
+
+    console.log(`📅 Consolidation deliveries in last ${daysAgo} days:`, filteredDeliveries.length);
+    console.log(`📅 Individual parcels in last ${daysAgo} days:`, filteredParcels.length);
+
+    // Group consolidation deliveries by date
+    const groupedByDate: Record<string, { deliveries: Delivery[], parcels: any[] }> = {};
+
+    filteredDeliveries.forEach((delivery) => {
+      const deliveryDate = new Date(delivery.endTime || delivery.actualDeliveryTime || delivery.updatedTimestamp || delivery.createdTimestamp);
+      const dateKey = deliveryDate.toLocaleDateString();
+      if (!groupedByDate[dateKey]) {
+        groupedByDate[dateKey] = { deliveries: [], parcels: [] };
+      }
+      groupedByDate[dateKey].deliveries.push(delivery);
+    });
+
+    // Group individual parcels by date
+    filteredParcels.forEach((parcel) => {
+      const deliveryDate = parcel.statusHistory?.find((h: any) => h.status === "delivered")?.timestamp;
+      if (deliveryDate) {
+        const dateKey = new Date(deliveryDate).toLocaleDateString();
+        if (!groupedByDate[dateKey]) {
+          groupedByDate[dateKey] = { deliveries: [], parcels: [] };
+        }
+        groupedByDate[dateKey].parcels.push(parcel);
+      }
+    });
 
     // Calculate stats for each day
     return Object.entries(groupedByDate)
-      .map(([date, dayDeliveries]) => {
+      .map(([date, data]) => {
+        const { deliveries: dayDeliveries, parcels: dayParcels } = data;
         let totalDistance = 0;
+        let totalEarnings = 0;
+        let totalDeliveryCount = 0;
 
+        // Calculate from consolidation deliveries
         dayDeliveries.forEach((delivery) => {
+          let deliveryDistance = 0;
+
+          // Calculate distance from location history
           if (delivery.locationHistory && delivery.locationHistory.length > 1) {
             for (let i = 1; i < delivery.locationHistory.length; i++) {
               const loc1 = delivery.locationHistory[i - 1];
               const loc2 = delivery.locationHistory[i];
               if (loc1.latitude && loc1.longitude && loc2.latitude && loc2.longitude) {
-                totalDistance += calculateDistance(
+                deliveryDistance += calculateDistance(
                   loc1.latitude,
                   loc1.longitude,
                   loc2.latitude,
@@ -137,17 +254,66 @@ const DeliveryHistory = ({ userId, setActiveTab }: { userId?: string; setActiveT
               }
             }
           }
+
+          totalDistance += deliveryDistance;
+
+          // Calculate earnings for this consolidation delivery
+          const consolidation = delivery.consolidationId;
+          if (consolidation?.parcels && consolidation.parcels.length > 0) {
+            const distancePerParcel = deliveryDistance / consolidation.parcels.length;
+            
+            consolidation.parcels.forEach((parcel: any) => {
+              const pricingType = parcel.pricingId?.parcelType || "Standard";
+              const driverPricing = getDriverPricingForParcel(pricingType);
+
+              if (driverPricing) {
+                const weight = parcel.weight?.value || 0;
+                
+                let parcelEarnings = driverPricing.driverBaseEarning;
+                parcelEarnings += distancePerParcel * driverPricing.driverEarningPerKm;
+                parcelEarnings += weight * driverPricing.driverEarningPerKg;
+                
+                if (parcel.isUrgent && driverPricing.urgentDeliveryBonus > 0) {
+                  parcelEarnings += driverPricing.urgentDeliveryBonus;
+                }
+
+                totalEarnings += parcelEarnings;
+                totalDeliveryCount++;
+              }
+            });
+          }
         });
 
-        const earnings = dayDeliveries.length * 5 + totalDistance * 0.45;
+        // Calculate from individual parcels
+        dayParcels.forEach((parcel) => {
+          const pricingType = parcel.pricingId?.parcelType || "Standard";
+          const driverPricing = getDriverPricingForParcel(pricingType);
+
+          if (driverPricing) {
+            const weight = parcel.weight?.value || 0;
+            const estimatedDistance = 5; // 5 km average for individual parcels
+            
+            let parcelEarnings = driverPricing.driverBaseEarning;
+            parcelEarnings += estimatedDistance * driverPricing.driverEarningPerKm;
+            parcelEarnings += weight * driverPricing.driverEarningPerKg;
+            
+            if (parcel.isUrgent && driverPricing.urgentDeliveryBonus > 0) {
+              parcelEarnings += driverPricing.urgentDeliveryBonus;
+            }
+
+            totalEarnings += parcelEarnings;
+            totalDistance += estimatedDistance;
+            totalDeliveryCount++;
+          }
+        });
 
         return {
           date,
-          deliveries: dayDeliveries.length,
+          deliveries: totalDeliveryCount,
           distance: Math.round(totalDistance * 10) / 10,
-          earnings: Math.round(earnings * 100) / 100,
-          avgRating: 4.8, // Default rating, can be enhanced with actual ratings
-          deliveryData: dayDeliveries,
+          earnings: Math.round(totalEarnings * 100) / 100,
+          deliveryData: dayDeliveries, // Keep consolidation deliveries for detail view
+          parcelData: dayParcels, // Store individual parcels separately
         };
       })
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -175,13 +341,13 @@ const DeliveryHistory = ({ userId, setActiveTab }: { userId?: string; setActiveT
 
   const exportData = () => {
     const csvContent = [
-      ["Date", "Deliveries", "Distance (km)", "Earnings (Rs.)", "Rating"],
+      ["Date", "Deliveries", "Distance (km)", "Earnings (Rs.)"],
       ...history.map((day) => [
         day.date,
         day.deliveries,
         day.distance,
         day.earnings,
-        day.avgRating,
+        
       ]),
     ]
       .map((row) => row.join(","))
@@ -283,7 +449,8 @@ const DeliveryHistory = ({ userId, setActiveTab }: { userId?: string; setActiveT
         </select>
         <button
           onClick={exportData}
-          className="bg-gray-600 text-gray-200 cursor-pointer px-4 py-2 rounded-lg border border-gray-500 hover:bg-gray-500 hover:-translate-y-1 transition-all flex items-center gap-2"
+          disabled={history.length === 0}
+          className="bg-gray-600 text-gray-200 cursor-pointer px-4 py-2 rounded-lg border border-gray-500 hover:bg-gray-500 hover:-translate-y-1 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Download className="w-4 h-4" />
           Export Data
@@ -306,28 +473,27 @@ const DeliveryHistory = ({ userId, setActiveTab }: { userId?: string; setActiveT
                 <th className="p-4 text-white font-semibold">Deliveries</th>
                 <th className="p-4 text-white font-semibold">Distance</th>
                 <th className="p-4 text-white font-semibold">Earnings</th>
-                <th className="p-4 text-white font-semibold">Rating</th>
+                
                 <th className="p-4 text-white font-semibold">Actions</th>
               </tr>
             </thead>
             <tbody>
               {history.map((day, index) => (
                 <tr key={index} className="border-b border-gray-700 hover:bg-blue-500/5 transition-colors">
-                  <td className="p-4 text-blue-400 flex items-center gap-2">
-                    <Calendar className="w-4 h-4" />
-                    {day.date}
+                  <td className="p-4 text-blue-400">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4" />
+                      {day.date}
+                    </div>
                   </td>
                   <td className="p-4 text-gray-400">{day.deliveries}</td>
                   <td className="p-4 text-gray-400">{day.distance} km</td>
-                  <td className="p-4 text-blue-400">Rs. {day.earnings.toFixed(2)}</td>
-                  <td className="p-4 text-gray-400 flex items-center gap-1">
-                    <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-                    {day.avgRating}
-                  </td>
+                  <td className="p-4 text-green-400 font-semibold">Rs. {day.earnings.toFixed(2)}</td>
+                  
                   <td className="p-4">
                     <button
                       onClick={() => setSelectedDay(day)}
-                      className="bg-blue-600 text-white px-3 py-1 rounded-lg hover:bg-blue-700 transition-all text-sm"
+                      className="bg-blue-600 text-white px-3 py-1 rounded-lg hover:bg-blue-700 transition-all text-sm cursor-pointer"
                     >
                       View Details
                     </button>
@@ -341,15 +507,15 @@ const DeliveryHistory = ({ userId, setActiveTab }: { userId?: string; setActiveT
 
       {/* Detail Modal */}
       {selectedDay && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-          <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setSelectedDay(null)}>
+          <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-2xl font-bold text-white">
                 Deliveries on {selectedDay.date}
               </h3>
               <button
                 onClick={() => setSelectedDay(null)}
-                className="text-gray-400 hover:text-white transition-colors"
+                className="text-gray-400 hover:text-white transition-colors text-3xl cursor-pointer"
               >
                 ×
               </button>
@@ -376,43 +542,89 @@ const DeliveryHistory = ({ userId, setActiveTab }: { userId?: string; setActiveT
 
             <div className="space-y-3">
               <h4 className="text-white font-semibold mb-3">Delivery Details</h4>
-              {selectedDay.deliveryData.map((delivery, idx) => (
-                <div
-                  key={delivery._id}
-                  className="bg-gray-900/50 border border-gray-700 rounded-lg p-4"
-                >
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <div className="text-blue-400 font-semibold">
-                        {delivery.consolidationId?.masterTrackingNumber || `DEL-${delivery._id.slice(-6)}`}
+              
+              {/* Consolidation Deliveries */}
+              {selectedDay.deliveryData.length > 0 && (
+                <div className="mb-4">
+                  <h5 className="text-gray-400 text-sm mb-2">Consolidation Deliveries ({selectedDay.deliveryData.length})</h5>
+                  {selectedDay.deliveryData.map((delivery, idx) => (
+                    <div
+                      key={delivery._id}
+                      className="bg-gray-900/50 border border-gray-700 rounded-lg p-4 mb-2"
+                    >
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <div className="text-blue-400 font-semibold">
+                            {delivery.consolidationId?.masterTrackingNumber || `DEL-${delivery._id.slice(-6)}`}
+                          </div>
+                          <div className="text-gray-500 text-sm">
+                            Ref: {delivery.consolidationId?.referenceCode || "N/A"}
+                          </div>
+                        </div>
+                        <span className="text-green-400 text-sm bg-green-500/10 px-2 py-1 rounded">Completed</span>
                       </div>
-                      <div className="text-gray-500 text-sm">
-                        Ref: {delivery.consolidationId?.referenceCode || "N/A"}
+                      <div className="text-gray-400 text-sm mb-2">
+                        Parcels: {delivery.consolidationId?.parcels?.length || 0}
                       </div>
+                      {delivery.startTime && delivery.endTime && (
+                        <div className="text-gray-400 text-sm">
+                          Duration:{" "}
+                          {Math.round(
+                            (new Date(delivery.endTime).getTime() -
+                              new Date(delivery.startTime).getTime()) /
+                              (1000 * 60)
+                          )}{" "}
+                          minutes
+                        </div>
+                      )}
+                      {delivery.notes && (
+                        <div className="text-gray-400 text-sm mt-2 italic bg-blue-500/10 p-2 rounded">
+                          Note: {delivery.notes}
+                        </div>
+                      )}
                     </div>
-                    <span className="text-green-400 text-sm">Completed</span>
-                  </div>
-                  <div className="text-gray-400 text-sm">
-                    Parcels: {delivery.consolidationId?.parcels?.length || 0}
-                  </div>
-                  {delivery.startTime && delivery.endTime && (
-                    <div className="text-gray-400 text-sm mt-2">
-                      Duration:{" "}
-                      {Math.round(
-                        (new Date(delivery.endTime).getTime() -
-                          new Date(delivery.startTime).getTime()) /
-                          (1000 * 60)
-                      )}{" "}
-                      minutes
-                    </div>
-                  )}
-                  {delivery.notes && (
-                    <div className="text-gray-400 text-sm mt-2 italic">
-                      Note: {delivery.notes}
-                    </div>
-                  )}
+                  ))}
                 </div>
-              ))}
+              )}
+
+              {/* Individual Parcels */}
+              {selectedDay.parcelData && selectedDay.parcelData.length > 0 && (
+                <div>
+                  <h5 className="text-gray-400 text-sm mb-2">Individual Parcels ({selectedDay.parcelData.length})</h5>
+                  {selectedDay.parcelData.map((parcel, idx) => (
+                    <div
+                      key={parcel._id}
+                      className="bg-gray-900/50 border border-green-700 rounded-lg p-4 mb-2"
+                    >
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <div className="text-green-400 font-semibold">
+                            {parcel.trackingNumber}
+                          </div>
+                          <div className="text-gray-500 text-sm">
+                            Type: {parcel.pricingId?.parcelType || "Standard"}
+                          </div>
+                        </div>
+                        <span className="text-green-400 text-sm bg-green-500/10 px-2 py-1 rounded">Delivered</span>
+                      </div>
+                      {parcel.receiver?.name && (
+                        <div className="text-gray-400 text-sm">
+                          Receiver: {parcel.receiver.name}
+                        </div>
+                      )}
+                      {parcel.weight && (
+                        <div className="text-gray-400 text-sm">
+                          Weight: {parcel.weight.value} {parcel.weight.unit}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {selectedDay.deliveryData.length === 0 && (!selectedDay.parcelData || selectedDay.parcelData.length === 0) && (
+                <div className="text-gray-400 text-center py-8">No delivery details available</div>
+              )}
             </div>
           </div>
         </div>
