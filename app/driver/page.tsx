@@ -91,7 +91,7 @@ export default function DriverDashboard() {
   return (
     <div className="min-h-screen  bg-black text-white flex flex-col">
       {/* Header */}
-      <DriverNavigation user={user}/>
+      <DriverNavigation setActiveTab={setActiveTab} user={user}/>
 
       <div className="flex flex-1">
         {/* Sidebar */}
@@ -99,15 +99,14 @@ export default function DriverDashboard() {
 
         {/* Main Content */}
         <main className="p-6 flex-1 ml-[14vw] mt-[12vh] bg-[#1D1D1D] overflow-y-auto">
-          {activeTab === "overview" && <DriverOverview  />}
-          {activeTab === "profile" && <DriverProfile />}
-          {activeTab === "routes" && <MyRoutes />}
-          {activeTab === "current" && <CurrentDeliveries />}
-          {activeTab === "navigation" && <GPSNavigation />}
-          {activeTab === "scanner" && <BarcodeScanner />}
-          {activeTab === "earnings" && <Earnings />}
-          {activeTab === "history" && <DeliveryHistory />}
-          {activeTab === "analytics" && <PerformanceAnalytics />}
+          {activeTab === "overview" && <DriverOverview setActiveTab={setActiveTab} />}
+          {activeTab === "profile" && <DriverProfile setActiveTab={setActiveTab} />}
+          {activeTab === "routes" && <MyRoutes setActiveTab={setActiveTab} />}
+          {activeTab === "current" && <CurrentDeliveries setActiveTab={setActiveTab} />}
+          {activeTab === "navigation" && <GPSNavigation setActiveTab={setActiveTab} />}
+          {activeTab === "earnings" && <Earnings setActiveTab={setActiveTab} />}
+          {activeTab === "history" && <DeliveryHistory setActiveTab={setActiveTab} />}
+          {activeTab === "analytics" && <PerformanceAnalytics setActiveTab={setActiveTab} />}
         </main>
       </div>
     </div>

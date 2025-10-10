@@ -51,7 +51,7 @@ interface Delivery {
   updatedTimestamp: Date | string;
 }
 
-const CurrentDeliveries = () => {
+const CurrentDeliveries = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (tab: string) => void }) => {
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -352,7 +352,7 @@ const CurrentDeliveries = () => {
           </p>
           <button
             onClick={fetchDeliveries}
-            className="mt-4 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-all"
+            className="mt-4 bg-blue-600 cursor-pointer text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-all"
           >
             Refresh
           </button>

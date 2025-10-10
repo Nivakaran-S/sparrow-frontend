@@ -26,7 +26,7 @@ interface PerformanceMetrics {
   };
 }
 
-const PerformanceAnalytics = () => {
+const PerformanceAnalytics = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (tab: string) => void }) => {
   const [metrics, setMetrics] = useState<PerformanceMetrics>({
     deliveryEfficiency: { avgTimePerDelivery: 0, comparisonToAverage: 0 },
     customerRating: { current: 4.8, trend: 0.3 },
@@ -224,7 +224,7 @@ const PerformanceAnalytics = () => {
         </h2>
         <button
           onClick={fetchPerformanceData}
-          className="text-gray-400 hover:text-white transition-colors flex items-center gap-2"
+          className="text-gray-400 cursor-pointer hover:text-white transition-colors flex items-center gap-2"
         >
           <RefreshCw className="w-5 h-5" />
           Refresh
@@ -277,30 +277,7 @@ const PerformanceAnalytics = () => {
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6 hover:-translate-y-1 hover:border-blue-400 transition-all">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-white">Fuel Efficiency</h3>
-            <Fuel className="w-6 h-6 text-green-400" />
-          </div>
-          <div className="mb-4">
-            <div className="text-4xl font-bold text-white mb-2">
-              {metrics.fuelEfficiency.kmPerLiter} L/100km
-            </div>
-            <p className="text-gray-400">Fuel consumption</p>
-          </div>
-          <div className="flex items-center gap-2 text-sm">
-            {metrics.fuelEfficiency.comparisonToFleet > 0 ? (
-              <>
-                <TrendingUp className="w-4 h-4 text-green-400" />
-                <span className="text-green-400">
-                  {metrics.fuelEfficiency.comparisonToFleet}% better than fleet
-                </span>
-              </>
-            ) : (
-              <span className="text-gray-400">Average fleet performance</span>
-            )}
-          </div>
-        </div>
+        
       </div>
 
       {/* Performance Goals */}

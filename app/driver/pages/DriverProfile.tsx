@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api-gateway-nine-orpin.vercel.app";
 
-const DriverProfile = () => {
+const DriverProfile = ({ setActiveTab }: { setActiveTab?: (tab: string) => void }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -138,7 +138,7 @@ const DriverProfile = () => {
           {!isEditing && (
             <button
               onClick={() => setIsEditing(true)}
-              className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+              className="px-6 py-2 bg-blue-600 cursor-pointer hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
             >
               Edit Profile
             </button>
@@ -252,17 +252,12 @@ const DriverProfile = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8 max-w-4xl">
         <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl border border-gray-700 p-6">
           <h4 className="text-lg font-semibold text-white mb-4">Security</h4>
-          <button className="w-full px-4 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors">
+          <button className="w-full px-4 cursor-pointer py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors">
             Change Password
           </button>
         </div>
 
-        <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl border border-gray-700 p-6">
-          <h4 className="text-lg font-semibold text-white mb-4">Notifications</h4>
-          <button className="w-full px-4 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors">
-            Notification Settings
-          </button>
-        </div>
+       
       </div>
     </div>
     </div>

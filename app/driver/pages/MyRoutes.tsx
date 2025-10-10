@@ -18,7 +18,7 @@ interface RouteData {
   parcels: any[];
 }
 
-const MyRoutes = () => {
+const MyRoutes = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (tab: string) => void }) => {
   const [routes, setRoutes] = useState<RouteData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -315,7 +315,7 @@ const MyRoutes = () => {
         </h2>
         <button
           onClick={fetchRoutes}
-          className="text-gray-400 hover:text-white transition-colors flex items-center gap-2"
+          className="text-gray-400 cursor-pointer hover:text-white transition-colors flex items-center gap-2"
           title="Refresh routes"
         >
           <RefreshCw className="w-5 h-5" />
@@ -331,7 +331,7 @@ const MyRoutes = () => {
           </p>
           <button
             onClick={fetchRoutes}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-all"
+            className="bg-blue-600 cursor-pointer text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-all"
           >
             Check for Routes
           </button>

@@ -29,7 +29,7 @@ interface DailyStats {
   deliveryData: Delivery[];
 }
 
-const DeliveryHistory = () => {
+const DeliveryHistory = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (tab: string) => void }) => {
   const [history, setHistory] = useState<DailyStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -283,7 +283,7 @@ const DeliveryHistory = () => {
         </select>
         <button
           onClick={exportData}
-          className="bg-gray-600 text-gray-200 px-4 py-2 rounded-lg border border-gray-500 hover:bg-gray-500 hover:-translate-y-1 transition-all flex items-center gap-2"
+          className="bg-gray-600 text-gray-200 cursor-pointer px-4 py-2 rounded-lg border border-gray-500 hover:bg-gray-500 hover:-translate-y-1 transition-all flex items-center gap-2"
         >
           <Download className="w-4 h-4" />
           Export Data

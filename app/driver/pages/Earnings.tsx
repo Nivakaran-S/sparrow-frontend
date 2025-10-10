@@ -9,7 +9,7 @@ interface EarningsData {
   month: { amount: number; deliveries: number; distance: number };
 }
 
-const Earnings = () => {
+const Earnings = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (tab: string) => void }) => {
   const [earnings, setEarnings] = useState<EarningsData>({
     today: { amount: 0, deliveries: 0, distance: 0 },
     week: { amount: 0, deliveries: 0, distance: 0 },
@@ -196,7 +196,7 @@ const Earnings = () => {
         </h2>
         <button
           onClick={fetchEarningsData}
-          className="text-gray-400 hover:text-white transition-colors flex items-center gap-2"
+          className="text-gray-400 cursor-pointer hover:text-white transition-colors flex items-center gap-2"
           title="Refresh data"
         >
           <RefreshCw className="w-5 h-5" />

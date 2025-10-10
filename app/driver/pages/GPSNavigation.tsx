@@ -32,7 +32,7 @@ interface Delivery {
   estimatedDeliveryTime?: string;
 }
 
-const GPSNavigation = () => {
+const GPSNavigation = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (tab: string) => void }) => {
   const [activeDelivery, setActiveDelivery] = useState<Delivery | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

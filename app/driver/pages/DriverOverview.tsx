@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 
 const BASE_URL_KEY = "https://api-gateway-nine-orpin.vercel.app";
 
-const DriverOverview = () => {
+const DriverOverview = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (tab: string) => void }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(false);
@@ -226,7 +226,7 @@ const DriverOverview = () => {
         <div className="flex items-center gap-4">
           <button
             onClick={fetchDriverData}
-            className="text-gray-400 hover:text-white transition-colors"
+            className="text-gray-400 cursor-pointer hover:text-white transition-colors"
             title="Refresh data"
           >
             <svg
@@ -337,7 +337,7 @@ const DriverOverview = () => {
           <p className="text-gray-400 mb-4">No active delivery at the moment</p>
           <button
             onClick={fetchDriverData}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-all"
+            className="bg-blue-600 cursor-pointer text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-all"
           >
             Check for New Deliveries
           </button>
