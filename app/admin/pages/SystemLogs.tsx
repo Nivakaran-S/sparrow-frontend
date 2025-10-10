@@ -11,7 +11,7 @@ type LogEntry = {
   user?: string;
 };
 
-const SystemLogs = () => {
+const SystemLogs = ({setActiveTab }: { setActiveTab?: (tab: string) => void }) => {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [filterLevel, setFilterLevel] = useState<string>('all');

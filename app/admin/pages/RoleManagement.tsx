@@ -10,7 +10,7 @@ type Role = {
   description: string;
 };
 
-const RoleManagement = () => {
+const RoleManagement = ({setActiveTab }: { setActiveTab?: (tab: string) => void }) => {
   const [roles] = useState<Role[]>([
     { 
       id: 1, 

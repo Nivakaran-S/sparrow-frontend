@@ -13,6 +13,7 @@ import Reports from "./pages/Reports";
 import SystemSettings from "./pages/SystemSettings";
 import SwiftScreen from "./pages/SwiftScreen";
 import AdminPricing from "./pages/AdminPricing";
+import AdminProfile from "./pages/AdminProfile";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api-gateway-nine-orpin.vercel.app";
 
@@ -92,7 +93,7 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-orange-500 text-white">
       {/* Header */}
-      <AdminNavigation user={user} />
+      <AdminNavigation user={user} setActiveTab={setActiveTab} />
 
       <div className="flex min-h-[calc(100vh-80px)]">
         {/* Sidebar */}
@@ -100,15 +101,15 @@ export default function AdminDashboard() {
 
         {/* Main Content */}
         <main className="flex-1 p-8 ml-[18vw] min-h-[90vh] mt-[10vh] overflow-y-auto bg-[#1D1D1D]">
-          {activeTab === 'overview' && <AdminOverview />}
-          {activeTab === 'users' && <UserManagement />}
-          {activeTab === 'roles' && <RoleManagement />}
-          {activeTab === 'pricing' && <AdminPricing />}
-          {activeTab === 'kpis' && <KPIMonitoring />}
-          {activeTab === 'logs' && <SystemLogs />}
-          {activeTab === 'reports' && <Reports />}
-          {activeTab === 'settings' && <SystemSettings />}
-          {activeTab === 'swift' && <SwiftScreen/>}
+          {activeTab === 'overview' && <AdminOverview setActiveTab={setActiveTab} />}
+          {activeTab === 'users' && <UserManagement setActiveTab={setActiveTab} />}
+          {activeTab === 'roles' && <RoleManagement setActiveTab={setActiveTab}/>}
+          {activeTab === 'pricing' && <AdminPricing setActiveTab={setActiveTab}/>}
+          {activeTab === 'profile' && <AdminProfile setActiveTab={setActiveTab}/>}
+          {activeTab === 'kpis' && <KPIMonitoring setActiveTab={setActiveTab}/>}
+          {activeTab === 'logs' && <SystemLogs setActiveTab={setActiveTab}/>}
+          {activeTab === 'reports' && <Reports setActiveTab={setActiveTab}/>}
+          {activeTab === 'swift' && <SwiftScreen setActiveTab={setActiveTab}/>}
         </main>
       </div>
     </div>

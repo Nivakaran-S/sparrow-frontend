@@ -37,17 +37,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
                     
                     <span className="font-medium">User Management</span>
                     </button>
-                    <button 
-                    className={`w-full cursor-pointer flex items-center rounded-[10px] gap-3 px-4 py-3 text-left transition-all border-l-4 ${
-                        activeTab === 'roles' 
-                        ? 'bg-gray-800 text-blue-400 border-l-blue-400' 
-                        : 'text-gray-300 border-l-transparent hover:bg-gray-800 hover:text-blue-400 hover:border-l-blue-400'
-                    }`}
-                    onClick={() => setActiveTab('roles')}
-                    >
                     
-                    <span className="font-medium">Role Management</span>
-                    </button>
                     <button 
                     className={`w-full cursor-pointer flex items-center rounded-[10px] gap-3 px-4 py-3 text-left transition-all border-l-4 ${
                         activeTab === 'pricing' 
@@ -58,6 +48,17 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
                     >
                     
                     <span className="font-medium">Price Management</span>
+                    </button>
+                    <button 
+                    className={`w-full cursor-pointer flex items-center rounded-[10px] gap-3 px-4 py-3 text-left transition-all border-l-4 ${
+                        activeTab === 'profile' 
+                        ? 'bg-gray-800 text-blue-400 border-l-blue-400' 
+                        : 'text-gray-300 border-l-transparent hover:bg-gray-800 hover:text-blue-400 hover:border-l-blue-400'
+                    }`}
+                    onClick={() => setActiveTab('profile')}
+                    >
+                    
+                    <span className="font-medium">Profile</span>
                     </button>
                 </div>
                 </div>
@@ -77,17 +78,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
                     
                     <span className="font-medium">KPI Monitoring</span>
                     </button>
-                    <button 
-                    className={`w-full flex cursor-pointer items-center rounded-[10px] gap-3 px-4 py-3 text-left transition-all border-l-4 ${
-                        activeTab === 'logs' 
-                        ? 'bg-gray-800 text-blue-400 border-l-blue-400' 
-                        : 'text-gray-300 border-l-transparent hover:bg-gray-800 hover:text-blue-400 hover:border-l-blue-400'
-                    }`}
-                    onClick={() => setActiveTab('logs')}
-                    >
                     
-                    <span className="font-medium">System Logs</span>
-                    </button>
                 </div>
                 </div>
 
@@ -105,16 +96,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
                     
                     <span className="font-medium">Reports</span>
                     </button>
-                    <button 
-                    className={`w-full flex cursor-pointer items-center rounded-[10px] gap-3 px-4 py-3 text-left transition-all border-l-4 ${
-                        activeTab === 'settings' 
-                        ? 'bg-gray-800 text-blue-400 border-l-blue-400' 
-                        : 'text-gray-300 border-l-transparent hover:bg-gray-800 hover:text-blue-400 hover:border-l-blue-400'
-                    }`}
-                    onClick={() => setActiveTab('settings')}
-                    >
-                    <span className="font-medium">System Settings</span>
-                    </button>
+                    
                 </div>
                 </div>
             </div>

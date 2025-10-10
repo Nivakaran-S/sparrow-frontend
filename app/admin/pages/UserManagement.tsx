@@ -17,7 +17,7 @@ type User = {
   };
 };
 
-const UserManagement = () => {
+const UserManagement = ({setActiveTab }: { setActiveTab?: (tab: string) => void }) => {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -129,9 +129,9 @@ const UserManagement = () => {
         </div>
         <button 
           onClick={fetchUsers}
-          className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-6 py-3 rounded-lg font-medium transition-all hover:-translate-y-1 shadow-lg shadow-blue-600/30"
+          className="bg-gradient-to-r cursor-pointer from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-6 py-3 rounded-lg font-medium transition-all hover:-translate-y-1 shadow-lg shadow-blue-600/30"
         >
-          🔄 Refresh
+          Refresh
         </button>
       </div>
 

@@ -2,7 +2,7 @@ import { useState } from "react";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api-gateway-nine-orpin.vercel.app";
 
-const Reports = () => {
+const Reports = ({setActiveTab }: { setActiveTab?: (tab: string) => void }) => {
   const [selectedPeriod, setSelectedPeriod] = useState("30days");
   const [generating, setGenerating] = useState(false);
 

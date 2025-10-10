@@ -13,7 +13,7 @@ type KPIData = {
   delayed: number;
 };
 
-const KPIMonitoring = () => {
+const KPIMonitoring = ({setActiveTab }: { setActiveTab?: (tab: string) => void }) => {
   const [kpiData, setKpiData] = useState<KPIData>({
     deliveryPerformance: 0,
     avgDeliveryTime: 0,

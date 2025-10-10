@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-const SystemSettings = () => {
+const SystemSettings = ({setActiveTab }: { setActiveTab?: (tab: string) => void }) => {
   const [settings, setSettings] = useState({
     systemName: "Sparrow Logistics",
     timezone: "UTC+0",
