@@ -196,7 +196,7 @@ export default function TrackParcel() {
         <p className="text-[#fff] text-[20px]">Enter your tracking number to get real-time updates</p>
         <div className="h-[20px]"></div>
         
-        <div className="flex flex-col md:flex-row gap-4 justify-center items-center">
+        <div className="flex flex-col md:flex-col gap-4 justify-center items-center">
           <input 
             type="text" 
             placeholder="Enter tracking number" 
@@ -204,7 +204,7 @@ export default function TrackParcel() {
             onChange={(e) => setTrackingNumber(e.target.value)}
             onKeyPress={handleKeyPress}
             disabled={loading}
-            className="flex-1 max-w-[500px] px-4 border-2 border-[#333333] rounded-xl text-base outline-none transition-colors duration-300 h-[6vh] bg-[#1a1a1a] text-white placeholder-gray-500 focus:border-[#FFA00A] disabled:opacity-50"
+            className="flex-1 max-w-[500px] px-6 border-2 border-[#333333] rounded-xl text-base outline-none transition-colors duration-300 h-[6vh] py-[15px] bg-[#1a1a1a] text-white placeholder-gray-500 focus:border-[#FFA00A] disabled:opacity-50"
           />
           <p>Try: TRK51990963AAMT</p>
           <button 
