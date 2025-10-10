@@ -175,7 +175,7 @@ export default function ParcelConsolidation({ userId }: { userId?: string }) {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
-    const random = Math.floor(Math.random() + 10000).toString().padStart(4, '0');
+    const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
     return `CON-${year}${month}${day}-${random}`;
   };
 
@@ -211,7 +211,7 @@ export default function ParcelConsolidation({ userId }: { userId?: string }) {
         referenceCode: finalReferenceCode,
         masterTrackingNumber: finalMasterTracking,
         parcels: selectedParcelIds,
-        createdBy: userId || '507f1f77bcf86cd799439011', // Default user ID if not provided
+        createdBy: userId || '507f1f77bcf86cd799439011',
         status: 'pending',
         warehouseId: selectedWarehouseId,
         ...(selectedDriverId && { assignedDriver: selectedDriverId })
@@ -317,23 +317,82 @@ export default function ParcelConsolidation({ userId }: { userId?: string }) {
     setSuccess("");
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/consolidations/api/consolidations/${consolidationId}/status`, {
-        method: 'PATCH',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          status,
-          note: `Status updated to ${status}`
-        })
+      // First, get the consolidation details to retrieve parcel IDs
+      const consolidationResponse = await fetch(
+        `${API_BASE_URL}/api/consolidations/api/consolidations/id/${consolidationId}`,
+        {
+          credentials: 'include'
+        }
+      );
+
+      if (!consolidationResponse.ok) {
+        throw new Error('Failed to fetch consolidation details');
+      }
+
+      const consolidationData = await consolidationResponse.json();
+      // Handle both direct response and data-wrapped response
+      const consolidationDetails = consolidationData.data || consolidationData;
+      const parcelIds = Array.isArray(consolidationDetails.parcels) 
+        ? consolidationDetails.parcels 
+        : [];
+
+      // Map consolidation status to parcel status
+      const parcelStatusMap: Record<Consolidation['status'], string> = {
+        'pending': 'consolidated',
+        'consolidated': 'consolidated',
+        'in_transit': 'in_transit',
+        'delivered': 'delivered',
+        'cancelled': 'cancelled'
+      };
+
+      const parcelStatus = parcelStatusMap[status];
+
+      // Update consolidation status
+      const consolidationUpdateResponse = await fetch(
+        `${API_BASE_URL}/api/consolidations/api/consolidations/${consolidationId}/status`,
+        {
+          method: 'PATCH',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            status,
+            note: `Status updated to ${status}`
+          })
+        }
+      );
+
+      if (!consolidationUpdateResponse.ok) {
+        throw new Error('Failed to update consolidation status');
+      }
+
+      // Update all associated parcels' statuses
+      const parcelUpdatePromises = parcelIds.map(async (parcelId: any) => {
+        try {
+          // Handle both ObjectId format and string format
+          const id = typeof parcelId === 'string' ? parcelId : parcelId._id || parcelId.toString();
+          
+          // Update parcel status
+          await fetch(`${API_BASE_URL}/api/parcels/api/parcels/${id}/status`, {
+            method: 'PATCH',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              status: parcelStatus,
+              service: 'consolidation-service',
+              note: `Consolidation status changed to ${status}`
+            })
+          });
+        } catch (err) {
+          console.error(`Error updating parcel status:`, err);
+        }
       });
 
-      if (response.ok) {
-        setSuccess(`Consolidation status updated to ${status}`);
-        await fetchConsolidations();
-        setTimeout(() => setSuccess(''), 3000);
-      } else {
-        throw new Error('Failed to update status');
-      }
+      await Promise.all(parcelUpdatePromises);
+
+      setSuccess(`Consolidation and ${parcelIds.length} parcel(s) status updated to ${status}`);
+      await fetchData();
+      setTimeout(() => setSuccess(''), 3000);
+
     } catch (error: any) {
       console.error('Error updating consolidation status:', error);
       setError(error.message || 'Failed to update consolidation status');

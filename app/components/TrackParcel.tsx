@@ -14,12 +14,14 @@ type TrackingEvent = {
   timestamp: string;
   description?: string;
   service?: string;
+  note?: string;
 };
 
 type TrackingData = {
   _id: string;
   trackingNumber: string;
   currentStatus: string;
+  status?: string;
   currentLocation?: {
     latitude?: number;
     longitude?: number;
@@ -29,6 +31,7 @@ type TrackingData = {
   estimatedDelivery?: string;
   actualDelivery?: string;
   events: TrackingEvent[];
+  statusHistory?: TrackingEvent[];
   sender?: {
     name?: string;
     address?: string;
@@ -42,6 +45,11 @@ type TrackingData = {
   parcelId?: any;
   consolidationId?: any;
   assignedDriver?: any;
+  weight?: {
+    value?: number;
+    unit?: string;
+  };
+  dimensions?: any;
 };
 
 export default function TrackParcel() {
@@ -62,17 +70,60 @@ export default function TrackParcel() {
       setError(null);
       setTrackingData(null);
 
-      const response = await fetch(`${API_BASE_URL}/api/parcels/api/tracking/${trackingNumber.trim()}`);
-
-      if (!response.ok) {
-        if (response.status === 404) {
-          throw new Error("Tracking number not found");
+      // Try to get parcel directly to see actual data
+      const parcelResponse = await fetch(
+        `${API_BASE_URL}/api/parcels/api/parcels/tracking/${trackingNumber.trim()}`,
+        {
+          credentials: 'include'
         }
-        throw new Error("Failed to fetch tracking information");
+      );
+
+      if (!parcelResponse.ok) {
+        if (parcelResponse.status === 404) {
+          throw new Error("Tracking number not found. Please check and try again.");
+        }
+        throw new Error("Failed to fetch tracking information.");
       }
 
-      const data = await response.json();
-      setTrackingData(data.data);
+      const parcelResult = await parcelResponse.json();
+      const parcelData = parcelResult.success ? parcelResult.data : parcelResult;
+
+      console.log('Raw parcel data:', parcelData); // Debug log
+
+      if (!parcelData) {
+        throw new Error("No tracking data available.");
+      }
+
+      // Transform parcel data to tracking format with proper handling
+      const normalizedData: TrackingData = {
+        _id: parcelData._id,
+        trackingNumber: parcelData.trackingNumber,
+        currentStatus: parcelData.status || 'created',
+        status: parcelData.status || 'created',
+        sender: parcelData.sender,
+        receiver: parcelData.receiver,
+        events: Array.isArray(parcelData.statusHistory) && parcelData.statusHistory.length > 0 
+          ? parcelData.statusHistory 
+          : [{
+              status: parcelData.status || 'created',
+              timestamp: parcelData.createdTimeStamp || new Date().toISOString(),
+              description: 'Parcel created',
+              service: 'parcel-service'
+            }],
+        statusHistory: parcelData.statusHistory || [],
+        parcelId: parcelData._id,
+        consolidationId: parcelData.consolidationId,
+        assignedDriver: parcelData.assignedDriver,
+        weight: parcelData.weight,
+        dimensions: parcelData.dimensions,
+        currentLocation: parcelData.warehouseId ? {
+          address: 'At warehouse'
+        } : undefined
+      };
+
+      console.log('Normalized data:', normalizedData); // Debug log
+
+      setTrackingData(normalizedData);
       setShowResults(true);
     } catch (err: any) {
       console.error("Error tracking parcel:", err);
@@ -90,14 +141,21 @@ export default function TrackParcel() {
   };
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        return 'Invalid date';
+      }
+      return date.toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch {
+      return 'Invalid date';
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -109,15 +167,26 @@ export default function TrackParcel() {
       'in_transit': 'bg-yellow-500',
       'out_for_delivery': 'bg-orange-500',
       'delivered': 'bg-green-500',
-      'cancelled': 'bg-red-500'
+      'cancelled': 'bg-red-500',
+      'received_at_warehouse': 'bg-blue-500',
+      'delayed': 'bg-orange-500',
+      'exception': 'bg-red-500'
     };
-    return statusColors[status] || 'bg-gray-500';
+    return statusColors[status?.toLowerCase()] || 'bg-gray-500';
   };
 
   const formatStatus = (status: string) => {
+    if (!status) return 'Unknown';
     return status.split('_').map(word => 
       word.charAt(0).toUpperCase() + word.slice(1)
     ).join(' ');
+  };
+
+  const handleReset = () => {
+    setTrackingNumber("");
+    setTrackingData(null);
+    setShowResults(false);
+    setError(null);
   };
 
   return (
@@ -130,11 +199,12 @@ export default function TrackParcel() {
         <div className="flex flex-col md:flex-row gap-4 justify-center items-center">
           <input 
             type="text" 
-            placeholder="Enter tracking number (e.g., SP2024001)" 
+            placeholder="Enter tracking number" 
             value={trackingNumber}
             onChange={(e) => setTrackingNumber(e.target.value)}
             onKeyPress={handleKeyPress}
-            className="flex-1 max-w-[500px] px-4 border-2 border-[#333333] rounded-xl text-base outline-none transition-colors duration-300 h-[6vh] bg-[#1a1a1a] text-white placeholder-gray-500 focus:border-[#FFA00A]"
+            disabled={loading}
+            className="flex-1 max-w-[500px] px-4 border-2 border-[#333333] rounded-xl text-base outline-none transition-colors duration-300 h-[6vh] bg-[#1a1a1a] text-white placeholder-gray-500 focus:border-[#FFA00A] disabled:opacity-50"
           />
           <button 
             onClick={handleTrack}
@@ -144,11 +214,17 @@ export default function TrackParcel() {
             {loading ? 'Tracking...' : 'Track Now'}
           </button>
         </div>
-        
-        <div className="h-[15px]"></div>
-        <div className="track-demo">
-          <p className="demo-text text-gray-400">Try demo: <span className="demo-code text-[#FFA00A] cursor-pointer hover:underline" onClick={() => setTrackingNumber('SP2024001')}>SP2024001</span></p>
-        </div>
+
+        {showResults && (
+          <div className="mt-4">
+            <button 
+              onClick={handleReset}
+              className="text-[#FFA00A] hover:underline text-sm"
+            >
+              ← Track another package
+            </button>
+          </div>
+        )}
 
         {error && (
           <div className="mt-6 p-4 bg-red-900/30 border border-red-500 rounded-xl max-w-2xl mx-auto">
@@ -168,6 +244,14 @@ export default function TrackParcel() {
                   </span>
                 </div>
               </div>
+              {trackingData.weight && (
+                <div className="text-right">
+                  <p className="text-gray-400 text-xs">Weight</p>
+                  <p className="text-white font-semibold">
+                    {trackingData.weight.value} {trackingData.weight.unit}
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Current Location */}
@@ -185,21 +269,27 @@ export default function TrackParcel() {
 
             {/* Sender & Receiver Info */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-              {trackingData.sender && (
+              {trackingData.sender && trackingData.sender.name && (
                 <div className="p-4 bg-[#222222] rounded-lg border border-[#333333]">
                   <p className="text-gray-400 text-sm mb-2">Sender</p>
                   <p className="text-white font-semibold">{trackingData.sender.name}</p>
                   {trackingData.sender.address && (
                     <p className="text-gray-300 text-sm mt-1">{trackingData.sender.address}</p>
                   )}
+                  {trackingData.sender.phoneNumber && (
+                    <p className="text-gray-300 text-sm mt-1">📱 {trackingData.sender.phoneNumber}</p>
+                  )}
                 </div>
               )}
-              {trackingData.receiver && (
+              {trackingData.receiver && trackingData.receiver.name && (
                 <div className="p-4 bg-[#222222] rounded-lg border border-[#333333]">
                   <p className="text-gray-400 text-sm mb-2">Receiver</p>
                   <p className="text-white font-semibold">{trackingData.receiver.name}</p>
                   {trackingData.receiver.address && (
                     <p className="text-gray-300 text-sm mt-1">{trackingData.receiver.address}</p>
+                  )}
+                  {trackingData.receiver.phoneNumber && (
+                    <p className="text-gray-300 text-sm mt-1">📱 {trackingData.receiver.phoneNumber}</p>
                   )}
                 </div>
               )}
@@ -213,38 +303,69 @@ export default function TrackParcel() {
               </div>
             )}
 
+            {/* Actual Delivery */}
+            {trackingData.actualDelivery && (
+              <div className="mb-6 p-4 bg-green-900/20 border border-green-500/30 rounded-lg">
+                <p className="text-green-400 text-sm">✓ Delivered On</p>
+                <p className="text-white font-semibold text-lg">{formatDate(trackingData.actualDelivery)}</p>
+              </div>
+            )}
+
             {/* Tracking Events Timeline */}
-            {trackingData.events && trackingData.events.length > 0 && (
+            {trackingData.events && trackingData.events.length > 0 ? (
               <div>
                 <h4 className="text-lg font-bold text-white mb-4">Tracking History</h4>
                 <div className="space-y-4">
-                  {trackingData.events.map((event, index) => (
-                    <div key={index} className="flex gap-4">
-                      <div className="flex flex-col items-center">
-                        <div className={`w-3 h-3 rounded-full ${getStatusColor(event.status)}`}></div>
-                        {index < trackingData.events.length - 1 && (
-                          <div className="w-0.5 h-full bg-[#333333] mt-1"></div>
-                        )}
-                      </div>
-                      <div className="flex-1 pb-4">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <p className="text-white font-semibold">{formatStatus(event.status)}</p>
-                            {event.description && (
-                              <p className="text-gray-400 text-sm mt-1">{event.description}</p>
-                            )}
-                            {event.location?.address && (
-                              <p className="text-gray-400 text-sm mt-1">📍 {event.location.address}</p>
-                            )}
+                  {trackingData.events
+                    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+                    .map((event, index) => (
+                      <div key={index} className="flex gap-4">
+                        <div className="flex flex-col items-center">
+                          <div className={`w-3 h-3 rounded-full ${getStatusColor(event.status)}`}></div>
+                          {index < trackingData.events.length - 1 && (
+                            <div className="w-0.5 h-full bg-[#333333] mt-1"></div>
+                          )}
+                        </div>
+                        <div className="flex-1 pb-4">
+                          <div className="flex justify-between items-start">
+                            <div className="flex-1">
+                              <p className="text-white font-semibold">{formatStatus(event.status)}</p>
+                              {(event.description || event.note) && (
+                                <p className="text-gray-400 text-sm mt-1">{event.description || event.note}</p>
+                              )}
+                              {event.location?.address && (
+                                <p className="text-gray-400 text-sm mt-1">📍 {event.location.address}</p>
+                              )}
+                              {event.service && (
+                                <p className="text-gray-500 text-xs mt-1">Service: {event.service}</p>
+                              )}
+                            </div>
+                            <p className="text-gray-400 text-xs whitespace-nowrap ml-4">
+                              {formatDate(event.timestamp)}
+                            </p>
                           </div>
-                          <p className="text-gray-400 text-xs whitespace-nowrap ml-4">
-                            {formatDate(event.timestamp)}
-                          </p>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
                 </div>
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-gray-400">No tracking history available yet</p>
+              </div>
+            )}
+
+            {/* Additional Info */}
+            {(trackingData.consolidationId || trackingData.assignedDriver) && (
+              <div className="mt-6 pt-4 border-t border-[#333333]">
+                <p className="text-gray-400 text-xs">
+                  {trackingData.consolidationId && (
+                    <span className="block">📦 Part of consolidated shipment</span>
+                  )}
+                  {trackingData.assignedDriver && (
+                    <span className="block mt-1">🚚 Driver assigned</span>
+                  )}
+                </p>
               </div>
             )}
           </div>
