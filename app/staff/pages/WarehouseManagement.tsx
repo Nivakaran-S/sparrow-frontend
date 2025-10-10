@@ -569,9 +569,9 @@ export default function WarehouseManagement({ userId, setActiveTab }: { userId?:
 
       {/* View/Edit Modal */}
       {activeModal.type && activeModal.warehouse && (
-        <div className="fixed inset-0 flex items-center justify-center z-50 px-4">
-          <div onClick={closeModal} className="absolute inset-0 bg-black opacity-60"></div>
-          <div className="bg-gradient-to-br from-gray-800 to-gray-900 relative border border-gray-700 rounded-xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 flex items-center justify-center z-[9999] h-[100vh]  ">
+          <div onClick={closeModal} className="h-[100vh] w-[100vw] bg-black opacity-60"></div>
+          <div className="bg-gradient-to-br absolute from-gray-800 to-gray-900  border border-gray-700 rounded-xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-white text-xl font-semibold">
                 {activeModal.type === 'VIEW' ? 'Warehouse Details' : 'Edit Warehouse'}

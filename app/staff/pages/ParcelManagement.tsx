@@ -245,7 +245,7 @@ export default function ParcelManagement({ userId, setActiveTab }: { userId?: st
             <div className="flex gap-3 mt-3">
               <button
                 onClick={() => setActiveTab('consolidation')}
-                className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg text-sm transition-colors flex items-center gap-2"
+                className="px-4 py-2 cursor-pointer bg-gray-800 hover:bg-gray-700 text-white rounded-lg text-sm transition-colors flex items-center gap-2"
               >
                 <Truck className="w-4 h-4" />
                 Consolidate Parcels
@@ -253,7 +253,7 @@ export default function ParcelManagement({ userId, setActiveTab }: { userId?: st
               </button>
               <button
                 onClick={() => setActiveTab('warehouse')}
-                className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg text-sm transition-colors flex items-center gap-2"
+                className="px-4 py-2 cursor-pointer bg-gray-800 hover:bg-gray-700 text-white rounded-lg text-sm transition-colors flex items-center gap-2"
               >
                 <Warehouse className="w-4 h-4" />
                 Warehouse Management
@@ -289,10 +289,12 @@ export default function ParcelManagement({ userId, setActiveTab }: { userId?: st
             className="bg-black h-[100vh] opacity-70 w-full absolute"
             onClick={() => setShowAddForm(false)}
           ></div>
-          <div className="bg-gradient-to-br absolute from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6 w-full max-w-2xl z-10 max-h-[90vh] overflow-y-auto">
-            <h3 className="text-white text-xl font-semibold mb-6">
-              Add New Parcel
-            </h3>
+          <div className="bg-gradient-to-br overflow-scroll [scrollbar-width:none] [&::-webkit-scrollbar]:hidden absolute from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6 w-full max-w-2xl z-10 max-h-[90vh] overflow-y-auto">
+            <p className="text-white text-xl  mb-6">
+              <p className="text-[30px] font-semibold">Parcel Details</p>
+              <p className="text-[15px]">Add New Parcel</p>
+            </p>
+            
 
             <form onSubmit={handleAddParcel} className="space-y-4">
               <input
@@ -392,13 +394,13 @@ export default function ParcelManagement({ userId, setActiveTab }: { userId?: st
                 <button
                   type="button"
                   onClick={() => setShowAddForm(false)}
-                  className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg"
+                  className="bg-gray-700 cursor-pointer hover:bg-gray-600 text-white px-4 py-2 rounded-lg"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="bg-blue-700 hover:bg-blue-600 text-white px-4 py-2 rounded-lg"
+                  className="bg-blue-700 cursor-pointer hover:bg-blue-600 text-white px-4 py-2 rounded-lg"
                 >
                   Save Parcel
                 </button>
@@ -414,7 +416,7 @@ export default function ParcelManagement({ userId, setActiveTab }: { userId?: st
           <h3 className="text-white text-lg font-semibold">All Parcels</h3>
           <button
             onClick={fetchParcels}
-            className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+            className="bg-gray-700 cursor-pointer hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
           >
             Refresh
           </button>
@@ -451,13 +453,13 @@ export default function ParcelManagement({ userId, setActiveTab }: { userId?: st
                         onClick={() =>
                           handleStatusUpdate(parcel._id, "delivered")
                         }
-                        className="bg-green-700 hover:bg-green-600 text-white px-3 py-1 rounded-lg text-xs"
+                        className="bg-green-700 cursor-pointer hover:bg-green-600 text-white px-3 py-1 rounded-lg text-xs"
                       >
                         Mark Delivered
                       </button>
                       <button
                         onClick={() => handleDeleteParcel(parcel._id)}
-                        className="bg-red-700 hover:bg-red-600 text-white px-3 py-1 rounded-lg text-xs"
+                        className="bg-red-700 cursor-pointer hover:bg-red-600 text-white px-3 py-1 rounded-lg text-xs"
                       >
                         Delete
                       </button>

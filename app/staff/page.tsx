@@ -90,7 +90,7 @@ export default function StaffDashboard() {
 
   return (
     <div className="min-h-screen bg-yellow-500 text-white">
-      <StaffNavigation user={user} setActiveTab={setActiveTab} activeTab={activeTab} />
+      <StaffNavigation user={user} setActiveTab={setActiveTab}  />
 
       <div className="flex min-h-[calc(100vh-80px)]">
         <StaffSidebar activeTab={activeTab} setActiveTab={setActiveTab} />

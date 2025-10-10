@@ -308,7 +308,7 @@ export default function PerformanceReports({ userId, setActiveTab }: { userId?: 
           <button 
             onClick={fetchMetrics}
             disabled={isLoading}
-            className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-6 py-2 rounded-lg font-medium transition-all hover:-translate-y-1 shadow-lg shadow-blue-600/30 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="bg-gradient-to-r cursor-pointer from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-6 py-2 rounded-lg font-medium transition-all hover:-translate-y-1 shadow-lg shadow-blue-600/30 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLoading ? 'Loading...' : 'Refresh Data'}
           </button>
@@ -399,7 +399,7 @@ export default function PerformanceReports({ userId, setActiveTab }: { userId?: 
                 <p className="text-gray-400 text-sm mb-4">Comprehensive daily activity summary</p>
                 <button 
                   onClick={() => downloadReport('daily-operations')}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-medium transition-colors flex items-center gap-2"
+                  className="px-4 cursor-pointer py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-medium transition-colors flex items-center gap-2"
                 >
                   <Download className="w-4 h-4" />
                   Download
@@ -411,7 +411,7 @@ export default function PerformanceReports({ userId, setActiveTab }: { userId?: 
                 <p className="text-gray-400 text-sm mb-4">Route and processing efficiency metrics</p>
                 <button 
                   onClick={() => downloadReport('efficiency-analysis')}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-medium transition-colors flex items-center gap-2"
+                  className="px-4 cursor-pointer py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-medium transition-colors flex items-center gap-2"
                 >
                   <Download className="w-4 h-4" />
                   Download
@@ -423,7 +423,7 @@ export default function PerformanceReports({ userId, setActiveTab }: { userId?: 
                 <p className="text-gray-400 text-sm mb-4">KPI trends and operational insights</p>
                 <button 
                   onClick={() => downloadReport('performance-analytics')}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-medium transition-colors flex items-center gap-2"
+                  className="px-4 cursor-pointer py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-medium transition-colors flex items-center gap-2"
                 >
                   <Download className="w-4 h-4" />
                   Download

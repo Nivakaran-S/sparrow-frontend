@@ -652,8 +652,8 @@ export default function ParcelConsolidation({ userId, setActiveTab }: { userId?:
         {showModal && (
           <div className="fixed inset-0 flex items-center justify-center z-[9999]">
             <div className="bg-black opacity-50 h-[100vh] w-[100vw]" onClick={() => setShowModal(false)}></div>
-            <div className="bg-gradient-to-br from-gray-800 absolute to-gray-900 border border-gray-700 rounded-xl p-6 w-full max-w-3xl max-h-[85vh] flex flex-col overflow-hidden">
-              <div className="flex items-center justify-between mb-6">
+            <div className="bg-gradient-to-br  from-gray-800 absolute to-gray-900 border border-gray-700 rounded-xl p-6 w-full max-w-3xl max-h-[85vh] flex flex-col overflow-hidden">
+              <div className="flex items-center justify-between mb-6 ">
                 <h3 className="text-white text-2xl font-semibold">Create Consolidation</h3>
                 <button 
                   onClick={() => {
@@ -671,7 +671,7 @@ export default function ParcelConsolidation({ userId, setActiveTab }: { userId?:
                 </button>
               </div>
               
-              <div className="overflow-y-auto flex-1 space-y-4">
+              <div className="overflow-y-auto overflow-scroll [scrollbar-width:none] [&::-webkit-scrollbar]:hidden flex-1 space-y-4">
                 {/* Reference Code & Master Tracking */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
