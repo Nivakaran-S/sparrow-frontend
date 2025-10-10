@@ -344,7 +344,7 @@ const CustomerNavigation = ({ user, setActiveTab }: CustomerNavigationProps) => 
                       setActiveTab && setActiveTab('profile');
                       setIsDropdownOpen(false);
                     }}
-                    className="w-full px-4 py-2 text-left text-white hover:bg-gray-700 transition-colors"
+                    className="w-full px-4 py-2 cursor-pointer text-left text-white hover:bg-gray-700 transition-colors"
                   >
                     Profile Settings
                   </button>
@@ -353,14 +353,14 @@ const CustomerNavigation = ({ user, setActiveTab }: CustomerNavigationProps) => 
                       setActiveTab && setActiveTab('billing');
                       setIsDropdownOpen(false);
                     }}
-                    className="w-full px-4 py-2 text-left text-white hover:bg-gray-700 transition-colors"
+                    className="w-full px-4 cursor-pointer py-2 text-left text-white hover:bg-gray-700 transition-colors"
                   >
                     Billing & Payment
                   </button>
                   <div className="border-t border-gray-700 my-2"></div>
                   <button 
                     onClick={handleLogout}
-                    className="w-full px-4 py-2 text-left text-red-400 hover:bg-gray-700 transition-colors"
+                    className="w-full px-4 py-2 cursor-pointer text-left text-red-400 hover:bg-gray-700 transition-colors"
                   >
                     Logout
                   </button>

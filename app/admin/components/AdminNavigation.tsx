@@ -343,7 +343,7 @@ const CustomerNavigation = ({ user, setActiveTab }: CustomerNavigationProps) => 
                   <div className="border-t border-gray-700 my-2"></div>
                   <button 
                     onClick={handleLogout}
-                    className="w-full px-4 py-2 text-left text-red-400 hover:bg-gray-700 transition-colors"
+                    className="w-full cursor-pointer px-4 py-2 text-left text-red-400 hover:bg-gray-700 transition-colors"
                   >
                     Logout
                   </button>
