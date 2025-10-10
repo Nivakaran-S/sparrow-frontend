@@ -78,7 +78,7 @@ const getCoordinatesFromCity = (city: string): { lat: number; lng: number } => {
   return cityCoords[city] || { lat: 40.7128, lng: -74.0060 };
 };
 
-export default function LiveTracking() {
+export default function LiveTracking({ userId, setActiveTab }: { userId?: string; setActiveTab?: (tab: string) => void }) {
   const [trackings, setTrackings] = useState<Tracking[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);

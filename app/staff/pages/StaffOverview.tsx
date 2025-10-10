@@ -19,7 +19,7 @@ interface Activity {
   timestamp: string;
 }
 
-export default function StaffOverview({ userId }: { userId?: string }) {
+export default function StaffOverview({ userId, setActiveTab }: { userId?: string; setActiveTab?: (tab: string) => void }) {
   const [stats, setStats] = useState<DashboardStats>({
     pendingParcels: 0,
     processedToday: 0,

@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect } from "react";
+import { Package, Warehouse, Truck, ArrowRight } from "lucide-react";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ||
@@ -26,7 +27,7 @@ interface Parcel {
   createdTimeStamp?: string;
 }
 
-export default function ParcelManagement({ userId }: { userId?: string }) {
+export default function ParcelManagement({ userId, setActiveTab }: { userId?: string; setActiveTab?: (tab: string) => void }) {
   const [parcels, setParcels] = useState<Parcel[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -238,6 +239,28 @@ export default function ParcelManagement({ userId }: { userId?: string }) {
           <p className="text-gray-400 mt-1">
             Manage and track all parcel operations
           </p>
+          
+          {/* Quick Navigation Buttons */}
+          {setActiveTab && (
+            <div className="flex gap-3 mt-3">
+              <button
+                onClick={() => setActiveTab('consolidation')}
+                className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg text-sm transition-colors flex items-center gap-2"
+              >
+                <Truck className="w-4 h-4" />
+                Consolidate Parcels
+                <ArrowRight className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setActiveTab('warehouse')}
+                className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg text-sm transition-colors flex items-center gap-2"
+              >
+                <Warehouse className="w-4 h-4" />
+                Warehouse Management
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+          )}
         </div>
         <button
           className="bg-gradient-to-r from-blue-800 to-blue-900 hover:from-blue-700 hover:to-blue-800 text-white px-6 py-3 rounded-lg font-medium transition-all cursor-pointer"
@@ -271,7 +294,7 @@ export default function ParcelManagement({ userId }: { userId?: string }) {
               Add New Parcel
             </h3>
 
-            <form onSubmit={handleAddParcel} className="space-y-4  ">
+            <form onSubmit={handleAddParcel} className="space-y-4">
               <input
                 type="text"
                 name="trackingNumber"

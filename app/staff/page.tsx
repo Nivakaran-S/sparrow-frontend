@@ -13,6 +13,7 @@ import RoutePlanning from "./pages/RoutePlanning";
 import WarehouseManagement from "./pages/WarehouseManagement";
 import LiveTracking from "./pages/LiveTracking";
 import SwiftScreen from "./pages/SwiftScreen";
+import StaffProfile from "./pages/StaffProfile";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api-gateway-nine-orpin.vercel.app";
 
@@ -89,20 +90,21 @@ export default function StaffDashboard() {
 
   return (
     <div className="min-h-screen bg-yellow-500 text-white">
-      <StaffNavigation user={user} />
+      <StaffNavigation user={user} setActiveTab={setActiveTab} activeTab={activeTab} />
 
       <div className="flex min-h-[calc(100vh-80px)]">
         <StaffSidebar activeTab={activeTab} setActiveTab={setActiveTab} />
 
         <main className="flex-1 p-8 ml-[18vw] mt-[10vh] overflow-y-auto min-h-[90vh] bg-[#1D1D1D]">
-          {activeTab === "overview" && <StaffOverview userId={user?.id} />}
-          {activeTab === "parcels" && <ParcelManagement userId={user?.id} />}
-          {activeTab === "warehouse" && <WarehouseManagement userId={user?.id} />}
-          {activeTab === "consolidation" && <ParcelConsolidation userId={user?.id} />}
-          {activeTab === "routes" && <RoutePlanning  />}
-          {activeTab === "tracking" && <LiveTracking />}
-          {activeTab === "reports" && <PerformanceReports userId={user?.id} />}
-          {activeTab === "swift" && <SwiftScreen />}
+          {activeTab === "overview" && <StaffOverview userId={user?.id} setActiveTab={setActiveTab} />}
+          {activeTab === "parcels" && <ParcelManagement userId={user?.id} setActiveTab={setActiveTab} />}
+          {activeTab === "warehouse" && <WarehouseManagement userId={user?.id} setActiveTab={setActiveTab} />}
+          {activeTab === "profile" && <StaffProfile setActiveTab={setActiveTab} />}
+          {activeTab === "consolidation" && <ParcelConsolidation userId={user?.id} setActiveTab={setActiveTab} />}
+          {activeTab === "routes" && <RoutePlanning setActiveTab={setActiveTab} />}
+          {activeTab === "tracking" && <LiveTracking setActiveTab={setActiveTab} />}
+          {activeTab === "reports" && <PerformanceReports userId={user?.id} setActiveTab={setActiveTab} />}
+          {activeTab === "swift" && <SwiftScreen setActiveTab={setActiveTab} />}
         </main>
       </div>
     </div>

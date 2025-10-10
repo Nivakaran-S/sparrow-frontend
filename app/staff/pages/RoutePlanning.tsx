@@ -1,6 +1,6 @@
 
 
-export default function RoutePlanning() {
+export default function RoutePlanning({ userId, setActiveTab }: { userId?: string; setActiveTab?: (tab: string) => void }) {
   return (
     <div className="space-y-8">
       <div>

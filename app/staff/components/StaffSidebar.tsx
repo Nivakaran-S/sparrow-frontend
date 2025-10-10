@@ -101,6 +101,18 @@ const StaffSidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
                 <span className="font-medium">Performance Reports</span>
               </button>
             </div>
+            <div className="space-y-1">
+              <button
+                className={`w-full flex cursor-pointer items-center rounded-[10px] gap-3 px-5 py-3 text-left transition-all border-l-4 ${
+                  activeTab === "profile"
+                    ? "bg-gray-800 text-blue-400 border-l-blue-400"
+                    : "text-gray-300 border-l-transparent hover:bg-gray-800 hover:text-blue-400 hover:border-l-blue-400"
+                }`}
+                onClick={() => setActiveTab("profile")}
+              >
+                <span className="font-medium">Profile</span>
+              </button>
+            </div>
           </div>
           {/* Swift Section */}
           <div className="px-6 mt-[15px]">

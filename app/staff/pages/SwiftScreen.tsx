@@ -21,7 +21,7 @@ type Session = {
 const STORAGE_KEY = 'swift_sessions_v1';
 const API_URL = 'https://nivakaran-sparrowagenticai.hf.space/chat';
 
-export default function SwiftScreen() {
+export default function SwiftScreen({ userId, setActiveTab }: { userId?: string; setActiveTab?: (tab: string) => void }) {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [message, setMessage] = useState('');

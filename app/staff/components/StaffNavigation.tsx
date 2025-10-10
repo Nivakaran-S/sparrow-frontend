@@ -10,7 +10,12 @@ type UserResponse = {
   email?: string;
 };
 
-const StaffNavigation = ({ user }: { user?: UserResponse }) => {
+const StaffNavigation = ({ user, setActiveTab, activeTab }: { 
+  user?: UserResponse; 
+  setActiveTab?: (tab: string) => void; 
+  activeTab?: string 
+}) => {
+
   const router = useRouter();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
@@ -132,7 +137,7 @@ const StaffNavigation = ({ user }: { user?: UserResponse }) => {
 
               {isDropdownOpen && (
                 <div className="absolute right-0 mt-2 w-48 bg-gray-800 border border-gray-700 rounded-lg shadow-lg py-2 z-50">
-                  <button className="w-full px-4 py-2 text-left text-white hover:bg-gray-700 transition-colors">
+                  <button onClick={() => setActiveTab && setActiveTab('profile')} className="w-full px-4 py-2 text-left text-white hover:bg-gray-700 transition-colors">
                     Profile Settings
                   </button>
                   <div className="border-t border-gray-700 my-2"></div>

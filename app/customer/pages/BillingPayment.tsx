@@ -115,15 +115,15 @@ const BillingPayment = ({ setActiveTab }: TrackShipmentsProps) => {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-4 mb-8 border-b border-gray-700">
+      <div className="flex  gap-4 mb-8 border-b border-gray-700">
         {["overview", "invoices", "transactions"].map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTabInside(tab)}
-            className={`px-6 py-3 font-medium transition-colors ${
+            className={`px-6  py-3 font-medium transition-colors ${
               activeTabInside === tab
                 ? "text-blue-400 border-b-2 border-blue-400"
-                : "text-gray-400 hover:text-white"
+                : "text-gray-400 hover:text-white cursor-pointer"
             }`}
           >
             {tab.charAt(0).toUpperCase() + tab.slice(1)}

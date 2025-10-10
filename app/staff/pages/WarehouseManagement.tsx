@@ -50,7 +50,7 @@ interface WarehouseFormData {
   status: 'active' | 'inactive' | 'under_maintenance';
 }
 
-export default function WarehouseManagement({ userId }: { userId?: string }) {
+export default function WarehouseManagement({ userId, setActiveTab }: { userId?: string; setActiveTab?: (tab: string) => void }) {
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [showRegisterForm, setShowRegisterForm] = useState(false);
   const [activeModal, setActiveModal] = useState<{

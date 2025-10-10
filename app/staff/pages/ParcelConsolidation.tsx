@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from "react";
-import { AlertCircle, Package, MapPin, Truck, Plus, X, CheckCircle, Warehouse, User, Hash } from "lucide-react";
+import { AlertCircle, Package, MapPin, Truck, Plus, X, CheckCircle, Warehouse, User, Hash, ArrowRight } from "lucide-react";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api-gateway-nine-orpin.vercel.app";
 
@@ -48,7 +48,7 @@ interface WarehouseType {
   status: string;
 }
 
-export default function ParcelConsolidation({ userId }: { userId?: string }) {
+export default function ParcelConsolidation({ userId, setActiveTab }: { userId?: string; setActiveTab?: (tab: string) => void }) {
   const [parcels, setParcels] = useState<Parcel[]>([]);
   const [consolidations, setConsolidations] = useState<Consolidation[]>([]);
   const [drivers, setDrivers] = useState<Driver[]>([]);
@@ -429,10 +429,40 @@ export default function ParcelConsolidation({ userId }: { userId?: string }) {
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-indigo-900 p-6">
       <div className="max-w-7xl mx-auto space-y-8">
         
-        {/* Header */}
+        {/* Header with Quick Navigation */}
         <div className="text-center">
           <h2 className="text-4xl font-bold text-white mb-2">Parcel Consolidation Hub</h2>
           <p className="text-gray-300">Efficiently manage and consolidate parcels for optimized delivery</p>
+          
+          {/* Quick Navigation Buttons */}
+          {setActiveTab && (
+            <div className="flex justify-center gap-3 mt-4">
+              <button
+                onClick={() => setActiveTab('parcels')}
+                className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg text-sm transition-colors flex items-center gap-2"
+              >
+                <Package className="w-4 h-4" />
+                View All Parcels
+                <ArrowRight className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setActiveTab('warehouse')}
+                className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg text-sm transition-colors flex items-center gap-2"
+              >
+                <Warehouse className="w-4 h-4" />
+                Warehouse Management
+                <ArrowRight className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setActiveTab('tracking')}
+                className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg text-sm transition-colors flex items-center gap-2"
+              >
+                <MapPin className="w-4 h-4" />
+                Live Tracking
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Alerts */}
@@ -620,9 +650,9 @@ export default function ParcelConsolidation({ userId }: { userId?: string }) {
 
         {/* Parcel Selection Modal */}
         {showModal && (
-          <div className="fixed inset-0  flex items-center justify-center z-[9999] ">
-            <div className="bg-black opacity-50 h-[100vh] w-[100vw]" ></div>
-            <div className="bg-gradient-to-br from-gray-800 absolute  to-gray-900 border border-gray-700 rounded-xl p-6 w-full max-w-3xl max-h-[85vh] flex flex-col overflow-hidden">
+          <div className="fixed inset-0 flex items-center justify-center z-[9999]">
+            <div className="bg-black opacity-50 h-[100vh] w-[100vw]" onClick={() => setShowModal(false)}></div>
+            <div className="bg-gradient-to-br from-gray-800 absolute to-gray-900 border border-gray-700 rounded-xl p-6 w-full max-w-3xl max-h-[85vh] flex flex-col overflow-hidden">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-white text-2xl font-semibold">Create Consolidation</h3>
                 <button 

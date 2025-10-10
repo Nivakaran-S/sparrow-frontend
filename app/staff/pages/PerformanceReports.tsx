@@ -58,7 +58,7 @@ interface PerformanceReportsProps {
   userId?: string;
 }
 
-export default function PerformanceReports({ userId }: PerformanceReportsProps) {
+export default function PerformanceReports({ userId, setActiveTab }: { userId?: PerformanceReportsProps; setActiveTab?: (tab: string) => void }) {
   const [metrics, setMetrics] = useState<PerformanceMetrics>({
     parcelsProcessed: 0,
     avgProcessingTime: 0,
