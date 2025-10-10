@@ -49,6 +49,18 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
                     
                     <span className="font-medium">Price Management</span>
                     </button>
+
+                    <button 
+                    className={`w-full cursor-pointer flex items-center rounded-[10px] gap-3 px-4 py-3 text-left transition-all border-l-4 ${
+                        activeTab === 'driverpricing' 
+                        ? 'bg-gray-800 text-blue-400 border-l-blue-400' 
+                        : 'text-gray-300 border-l-transparent hover:bg-gray-800 hover:text-blue-400 hover:border-l-blue-400'
+                    }`}
+                    onClick={() => setActiveTab('driverpricing')}
+                    >
+                    
+                    <span className="font-medium">Driver Fare Management</span>
+                    </button>
                     <button 
                     className={`w-full cursor-pointer flex items-center rounded-[10px] gap-3 px-4 py-3 text-left transition-all border-l-4 ${
                         activeTab === 'profile' 
