@@ -16,10 +16,14 @@ import {
   CheckCircle,
   Clock,
   AlertCircle,
-  Layers
+  Layers,
+  Eye,
+  RefreshCw,
+  Navigation
 } from "lucide-react";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api-gateway-nine-orpin.vercel.app";
+const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "YOUR_GOOGLE_MAPS_API_KEY_HERE";
 
 interface Delivery {
   _id: string;
@@ -64,6 +68,8 @@ interface Delivery {
   actualDeliveryTime?: string;
   createdTimestamp: string;
   updatedTimestamp: string;
+  deliveryInstructions?: string;
+  notes?: string;
 }
 
 interface Driver {
@@ -84,6 +90,7 @@ interface Parcel {
   trackingNumber: string;
   status: string;
   warehouseId?: any;
+  consolidationId?: any;
   receiver?: {
     name?: string;
     address?: string;
@@ -120,6 +127,9 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
   const [itemTypeFilter, setItemTypeFilter] = useState("all");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [isGeocodingFrom, setIsGeocodingFrom] = useState(false);
+  const [isGeocodingTo, setIsGeocodingTo] = useState(false);
   const [selectedDelivery, setSelectedDelivery] = useState<Delivery | null>(null);
   const [showFilters, setShowFilters] = useState(false);
 
@@ -145,6 +155,86 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
     deliveryInstructions: "",
     notes: ""
   });
+
+  // Geocoding function to fetch coordinates from address
+  const geocodeAddress = async (address: string): Promise<{ lat: number; lng: number; formattedAddress: string } | null> => {
+    if (!address.trim()) {
+      alert("Please enter an address first");
+      return null;
+    }
+
+    try {
+      const response = await fetch(
+        `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_MAPS_API_KEY}`
+      );
+      
+      const data = await response.json();
+      
+      if (data.status === "OK" && data.results && data.results.length > 0) {
+        const result = data.results[0];
+        return {
+          lat: result.geometry.location.lat,
+          lng: result.geometry.location.lng,
+          formattedAddress: result.formatted_address
+        };
+      } else if (data.status === "ZERO_RESULTS") {
+        alert("No results found for this address. Please check and try again.");
+        return null;
+      } else if (data.status === "REQUEST_DENIED") {
+        alert("Geocoding request denied. Please check your API key configuration.");
+        return null;
+      } else {
+        alert(`Geocoding failed: ${data.status}`);
+        return null;
+      }
+    } catch (error) {
+      console.error("Geocoding error:", error);
+      alert("Failed to fetch coordinates. Please check your internet connection.");
+      return null;
+    }
+  };
+
+  // Handle geocoding for "From" location
+  const handleGeocodeFromAddress = async () => {
+    if (!formData.fromAddress) {
+      alert("Please enter a \"From\" address first");
+      return;
+    }
+
+    setIsGeocodingFrom(true);
+    const result = await geocodeAddress(formData.fromAddress);
+    setIsGeocodingFrom(false);
+
+    if (result) {
+      setFormData(prev => ({
+        ...prev,
+        fromLatitude: result.lat.toString(),
+        fromLongitude: result.lng.toString(),
+        fromAddress: result.formattedAddress
+      }));
+    }
+  };
+
+  // Handle geocoding for "To" location
+  const handleGeocodeToAddress = async () => {
+    if (!formData.toAddress) {
+      alert("Please enter a \"To\" address first");
+      return;
+    }
+
+    setIsGeocodingTo(true);
+    const result = await geocodeAddress(formData.toAddress);
+    setIsGeocodingTo(false);
+
+    if (result) {
+      setFormData(prev => ({
+        ...prev,
+        toLatitude: result.lat.toString(),
+        toLongitude: result.lng.toString(),
+        toAddress: result.formattedAddress
+      }));
+    }
+  };
 
   useEffect(() => {
     fetchAllData();
@@ -221,9 +311,8 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
       if (res.ok) {
         const data = await res.json();
         const allParcels = data.data || [];
-        // Filter parcels that are available for delivery (include full parcel data)
         const availableParcels = allParcels.filter((p: any) => 
-          p.status === 'created' || p.status === 'at_warehouse'
+          p.status !== 'delivered' && p.status !== 'cancelled'
         );
         setParcels(availableParcels);
       }
@@ -234,15 +323,14 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
 
   const fetchConsolidations = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/consolidations/consolidations`, {
+      const res = await fetch(`${API_BASE_URL}/api/consolidations/api/consolidations`, {
         credentials: 'include'
       });
       if (res.ok) {
         const data = await res.json();
         const allConsolidations = data.data || [];
-        // Filter consolidations that are ready for delivery (include full data)
         const availableConsolidations = allConsolidations.filter((c: any) => 
-          c.status === 'consolidated' || c.status === 'pending'
+          c.status !== 'delivered' && c.status !== 'cancelled'
         );
         setConsolidations(availableConsolidations);
       }
@@ -251,8 +339,7 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
     }
   };
 
-  // Auto-fill form based on selected parcels
-  const handleParcelSelection = (parcelId: string, isChecked: boolean) => {
+  const handleParcelSelection = async (parcelId: string, isChecked: boolean) => {
     let updatedParcels: string[];
     
     if (isChecked) {
@@ -263,65 +350,72 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
 
     setFormData({ ...formData, parcels: updatedParcels });
 
-    // Auto-fill form if this is the first parcel selected
     if (isChecked && updatedParcels.length === 1) {
       const selectedParcel = parcels.find(p => p._id === parcelId);
       if (selectedParcel) {
-        autoFillFromParcel(selectedParcel);
+        await autoFillFromParcel(selectedParcel);
       }
     }
   };
 
-  // Auto-fill form from parcel data
-  const autoFillFromParcel = (parcel: any) => {
+  const autoFillFromParcel = async (parcel: any) => {
     const updates: any = {};
 
-    // Set from location if parcel has warehouse
     if (parcel.warehouseId) {
       updates.fromLocationType = "warehouse";
       updates.fromWarehouseId = parcel.warehouseId._id || parcel.warehouseId;
     }
 
-    // Set to location from receiver address if available
     if (parcel.receiver?.address) {
       updates.toLocationType = "address";
       updates.toAddress = parcel.receiver.address;
-      // You can add latitude/longitude if available in parcel data
       updates.toLocationName = parcel.receiver.name || "";
+      
+      // Auto-geocode the receiver address
+      const result = await geocodeAddress(parcel.receiver.address);
+      if (result) {
+        updates.toLatitude = result.lat.toString();
+        updates.toLongitude = result.lng.toString();
+        updates.toAddress = result.formattedAddress;
+      }
     }
 
     setFormData(prev => ({ ...prev, ...updates }));
   };
 
-  // Auto-fill form based on selected consolidation
-  const handleConsolidationSelection = (consolidationId: string) => {
+  const handleConsolidationSelection = async (consolidationId: string) => {
     setFormData({ ...formData, consolidation: consolidationId });
 
     if (consolidationId) {
       const selectedConsolidation = consolidations.find(c => c._id === consolidationId);
       if (selectedConsolidation) {
-        autoFillFromConsolidation(selectedConsolidation);
+        await autoFillFromConsolidation(selectedConsolidation);
       }
     }
   };
 
-  // Auto-fill form from consolidation data
-  const autoFillFromConsolidation = (consolidation: any) => {
+  const autoFillFromConsolidation = async (consolidation: any) => {
     const updates: any = {};
 
-    // Set from location from warehouse
     if (consolidation.warehouseId) {
       updates.fromLocationType = "warehouse";
       updates.fromWarehouseId = consolidation.warehouseId._id || consolidation.warehouseId;
     }
 
-    // If consolidation has parcels, use the first parcel's receiver info for destination
     if (consolidation.parcels && consolidation.parcels.length > 0) {
       const firstParcel = consolidation.parcels[0];
       if (firstParcel.receiver?.address) {
         updates.toLocationType = "address";
         updates.toAddress = firstParcel.receiver.address;
         updates.toLocationName = firstParcel.receiver.name || "";
+        
+        // Auto-geocode the receiver address
+        const result = await geocodeAddress(firstParcel.receiver.address);
+        if (result) {
+          updates.toLatitude = result.lat.toString();
+          updates.toLongitude = result.lng.toString();
+          updates.toAddress = result.formattedAddress;
+        }
       }
     }
 
@@ -377,14 +471,12 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
       notes: formData.notes
     };
 
-    // Add parcels or consolidation based on deliveryItemType
     if (formData.deliveryItemType === "parcel") {
       deliveryData.parcels = formData.parcels;
     } else {
       deliveryData.consolidation = formData.consolidation;
     }
 
-    // From location
     if (formData.fromLocationType === "warehouse") {
       deliveryData.fromLocation.warehouseId = formData.fromWarehouseId;
     } else {
@@ -394,7 +486,6 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
       deliveryData.fromLocation.locationName = formData.fromLocationName;
     }
 
-    // To location
     if (formData.toLocationType === "warehouse") {
       deliveryData.toLocation.warehouseId = formData.toWarehouseId;
     } else {
@@ -417,7 +508,7 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
       });
 
       if (res.ok) {
-        await fetchDeliveries();
+        await fetchAllData();
         setShowCreateModal(false);
         resetForm();
         alert("Delivery created successfully!");
@@ -441,7 +532,7 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
       });
 
       if (res.ok) {
-        await fetchDeliveries();
+        await fetchAllData();
         alert("Status updated successfully!");
       }
     } catch (error) {
@@ -460,7 +551,7 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
       });
 
       if (res.ok) {
-        await fetchDeliveries();
+        await fetchAllData();
         setShowDeleteModal(false);
         setSelectedDelivery(null);
         alert("Delivery deleted successfully!");
@@ -497,721 +588,738 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
   };
 
   const getStatusColor = (status: string) => {
-    const colors: { [key: string]: string } = {
-      assigned: "bg-blue-500/20 text-blue-400 border-blue-500/50",
-      accepted: "bg-green-500/20 text-green-400 border-green-500/50",
-      in_progress: "bg-yellow-500/20 text-yellow-400 border-yellow-500/50",
-      picked_up: "bg-purple-500/20 text-purple-400 border-purple-500/50",
-      in_transit: "bg-orange-500/20 text-orange-400 border-orange-500/50",
-      delivered: "bg-green-500/20 text-green-400 border-green-500/50",
-      failed: "bg-red-500/20 text-red-400 border-red-500/50",
-      cancelled: "bg-gray-500/20 text-gray-400 border-gray-500/50"
-    };
-    return colors[status] || "bg-gray-500/20 text-gray-400 border-gray-500/50";
+    switch (status) {
+      case "pending": return "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
+      case "in_transit": return "bg-blue-500/20 text-blue-400 border-blue-500/30";
+      case "delivered": return "bg-green-500/20 text-green-400 border-green-500/30";
+      case "failed": return "bg-red-500/20 text-red-400 border-red-500/30";
+      case "cancelled": return "bg-gray-500/20 text-gray-400 border-gray-500/30";
+      default: return "bg-gray-500/20 text-gray-400 border-gray-500/30";
+    }
   };
 
   const getPriorityColor = (priority: string) => {
-    const colors: { [key: string]: string } = {
-      low: "bg-gray-500/20 text-gray-400",
-      normal: "bg-blue-500/20 text-blue-400",
-      high: "bg-orange-500/20 text-orange-400",
-      urgent: "bg-red-500/20 text-red-400"
-    };
-    return colors[priority] || "bg-gray-500/20 text-gray-400";
-  };
-
-  const formatDeliveryType = (type: string) => {
-    return type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-  };
-
-  const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  const getItemCount = (delivery: Delivery) => {
-    if (delivery.deliveryItemType === "parcel") {
-      return `${delivery.parcels.length} Parcel${delivery.parcels.length !== 1 ? 's' : ''}`;
-    } else {
-      return `1 Consolidation (${delivery.consolidation?.parcels?.length || 0} parcels)`;
+    switch (priority) {
+      case "high": return "bg-red-500/20 text-red-400 border-red-500/30";
+      case "normal": return "bg-blue-500/20 text-blue-400 border-blue-500/30";
+      case "low": return "bg-gray-500/20 text-gray-400 border-gray-500/30";
+      default: return "bg-gray-500/20 text-gray-400 border-gray-500/30";
     }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case "pending": return <Clock className="w-4 h-4" />;
+      case "in_transit": return <Truck className="w-4 h-4" />;
+      case "delivered": return <CheckCircle className="w-4 h-4" />;
+      case "failed": return <AlertCircle className="w-4 h-4" />;
+      default: return <Clock className="w-4 h-4" />;
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    if (!dateString) return "N/A";
+    const date = new Date(dateString);
+    return date.toLocaleString();
   };
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500 mb-4"></div>
+          <p className="text-gray-400">Loading deliveries...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <h2 className="text-3xl font-bold text-white">Delivery Management</h2>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="bg-gradient-to-r cursor-pointer from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-6 py-3 rounded-lg font-medium transition-all hover:-translate-y-1 shadow-lg shadow-blue-600/30 flex items-center gap-2"
-        >
-          <Plus className="w-5 h-5" />
-          Create Delivery
-        </button>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-4">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-3">
-            <div className="bg-blue-500/20 rounded-lg w-12 h-12 flex items-center justify-center">
-              <Truck className="w-6 h-6 text-blue-400" />
+            <div className="p-3 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl">
+              <Truck className="w-8 h-8 text-white" />
             </div>
             <div>
-              <p className="text-gray-400 text-sm">Total Deliveries</p>
-              <p className="text-white text-2xl font-bold">{deliveries.length}</p>
+              <h1 className="text-3xl font-bold text-white">Delivery Management</h1>
+              <p className="text-gray-400">Manage and track all deliveries</p>
             </div>
-          </div>
-        </div>
-
-        <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-4">
-          <div className="flex items-center gap-3">
-            <div className="bg-yellow-500/20 rounded-lg w-12 h-12 flex items-center justify-center">
-              <Clock className="w-6 h-6 text-yellow-400" />
-            </div>
-            <div>
-              <p className="text-gray-400 text-sm">In Progress</p>
-              <p className="text-white text-2xl font-bold">
-                {deliveries.filter(d => d.status === 'in_progress' || d.status === 'in_transit').length}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-4">
-          <div className="flex items-center gap-3">
-            <div className="bg-green-500/20 rounded-lg w-12 h-12 flex items-center justify-center">
-              <CheckCircle className="w-6 h-6 text-green-400" />
-            </div>
-            <div>
-              <p className="text-gray-400 text-sm">Delivered</p>
-              <p className="text-white text-2xl font-bold">
-                {deliveries.filter(d => d.status === 'delivered').length}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-4">
-          <div className="flex items-center gap-3">
-            <div className="bg-red-500/20 rounded-lg w-12 h-12 flex items-center justify-center">
-              <AlertCircle className="w-6 h-6 text-red-400" />
-            </div>
-            <div>
-              <p className="text-gray-400 text-sm">Failed</p>
-              <p className="text-white text-2xl font-bold">
-                {deliveries.filter(d => d.status === 'failed' || d.status === 'cancelled').length}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Search and Filters */}
-      <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6">
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-            <input
-              type="text"
-              placeholder="Search by delivery number, driver, tracking number, or consolidation..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
           </div>
           <button
-            onClick={() => setShowFilters(!showFilters)}
-            className="bg-gray-700 cursor-pointer hover:bg-gray-600 border border-gray-600 text-gray-200 px-6 py-3 rounded-lg font-medium transition-all flex items-center gap-2"
+            onClick={() => setShowCreateModal(true)}
+            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-lg transition-all shadow-lg hover:shadow-xl"
           >
-            <Filter className="w-5 h-5" />
-            Filters
-            <ChevronDown className={`w-4 h-4 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
+            <Plus className="w-5 h-5" />
+            Create Delivery
           </button>
         </div>
 
-        {showFilters && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4 pt-4 border-t border-gray-700">
-            <div>
-              <label className="block text-gray-400 text-sm mb-2">Item Type</label>
-              <select
-                value={itemTypeFilter}
-                onChange={(e) => setItemTypeFilter(e.target.value)}
-                className="w-full px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="all">All Types</option>
-                <option value="parcel">Parcel</option>
-                <option value="consolidation">Consolidation</option>
-              </select>
+        {/* Search and Filters */}
+        <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 mb-6 border border-gray-700/50">
+          <div className="flex flex-col lg:flex-row gap-4">
+            <div className="flex-1 relative">
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <input
+                type="text"
+                placeholder="Search by delivery number, driver, tracking number..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-12 pr-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
             </div>
-
-            <div>
-              <label className="block text-gray-400 text-sm mb-2">Status</label>
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="all">All Statuses</option>
-                <option value="assigned">Assigned</option>
-                <option value="accepted">Accepted</option>
-                <option value="in_progress">In Progress</option>
-                <option value="picked_up">Picked Up</option>
-                <option value="in_transit">In Transit</option>
-                <option value="delivered">Delivered</option>
-                <option value="failed">Failed</option>
-                <option value="cancelled">Cancelled</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-gray-400 text-sm mb-2">Delivery Type</label>
-              <select
-                value={typeFilter}
-                onChange={(e) => setTypeFilter(e.target.value)}
-                className="w-full px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="all">All Types</option>
-                <option value="address_to_warehouse">Address to Warehouse</option>
-                <option value="warehouse_to_warehouse">Warehouse to Warehouse</option>
-                <option value="warehouse_to_address">Warehouse to Address</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-gray-400 text-sm mb-2">Priority</label>
-              <select
-                value={priorityFilter}
-                onChange={(e) => setPriorityFilter(e.target.value)}
-                className="w-full px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="all">All Priorities</option>
-                <option value="low">Low</option>
-                <option value="normal">Normal</option>
-                <option value="high">High</option>
-                <option value="urgent">Urgent</option>
-              </select>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Deliveries List */}
-      <div className="space-y-4">
-        {filteredDeliveries.length === 0 ? (
-          <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-12 text-center">
-            <Truck className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-            <p className="text-gray-400 text-lg">No deliveries found</p>
-          </div>
-        ) : (
-          filteredDeliveries.map((delivery) => (
-            <div
-              key={delivery._id}
-              className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6 hover:border-blue-500 transition-all"
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className="flex items-center justify-center gap-2 px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-all"
             >
-              <div className="flex flex-col lg:flex-row gap-6">
-                {/* Left Section */}
-                <div className="flex-1 space-y-4">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h3 className="text-white text-xl font-bold mb-2">{delivery.deliveryNumber}</h3>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(delivery.status)}`}>
-                          {delivery.status.replace(/_/g, ' ').toUpperCase()}
-                        </span>
-                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${getPriorityColor(delivery.priority)}`}>
-                          {delivery.priority.toUpperCase()}
-                        </span>
-                        <span className="px-3 py-1 rounded-full text-xs font-medium bg-purple-500/20 text-purple-400">
-                          {formatDeliveryType(delivery.deliveryType)}
-                        </span>
-                        {delivery.deliveryItemType === "consolidation" && (
-                          <span className="px-3 py-1 rounded-full text-xs font-medium bg-cyan-500/20 text-cyan-400 flex items-center gap-1">
-                            <Layers className="w-3 h-3" />
-                            CONSOLIDATION
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
+              <Filter className="w-5 h-5" />
+              Filters
+              <ChevronDown className={`w-4 h-4 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
+            </button>
+          </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-gray-400">
-                        <MapPin className="w-4 h-4 text-green-400" />
-                        <span className="text-sm font-medium">From:</span>
-                      </div>
-                      <p className="text-white text-sm pl-6">
-                        {delivery.fromLocation.type === 'warehouse' 
-                          ? delivery.fromLocation.warehouseId?.name || 'Warehouse'
-                          : delivery.fromLocation.address || delivery.fromLocation.locationName}
-                      </p>
-                    </div>
-
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-gray-400">
-                        <MapPin className="w-4 h-4 text-red-400" />
-                        <span className="text-sm font-medium">To:</span>
-                      </div>
-                      <p className="text-white text-sm pl-6">
-                        {delivery.toLocation.type === 'warehouse' 
-                          ? delivery.toLocation.warehouseId?.name || 'Warehouse'
-                          : delivery.toLocation.address || delivery.toLocation.locationName}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="flex items-center gap-2">
-                      <User className="w-4 h-4 text-blue-400" />
-                      <span className="text-gray-400 text-sm">Driver:</span>
-                      <span className="text-white text-sm font-medium">{delivery.assignedDriver?.userName || 'N/A'}</span>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      {delivery.deliveryItemType === "parcel" ? (
-                        <Package className="w-4 h-4 text-purple-400" />
-                      ) : (
-                        <Layers className="w-4 h-4 text-cyan-400" />
-                      )}
-                      <span className="text-gray-400 text-sm">Items:</span>
-                      <span className="text-white text-sm font-medium">{getItemCount(delivery)}</span>
-                    </div>
-                  </div>
-
-                  {delivery.deliveryItemType === "consolidation" && delivery.consolidation && (
-                    <div className="bg-cyan-500/10 border border-cyan-500/30 rounded-lg p-3">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Layers className="w-4 h-4 text-cyan-400" />
-                        <span className="text-cyan-400 text-sm font-medium">Consolidation Details</span>
-                      </div>
-                      <p className="text-gray-300 text-sm pl-6">
-                        Reference: {delivery.consolidation.referenceCode}
-                      </p>
-                      <p className="text-gray-400 text-xs pl-6">
-                        Tracking: {delivery.consolidation.masterTrackingNumber}
-                      </p>
-                    </div>
-                  )}
-
-                  <div className="flex items-center gap-2 text-gray-400 text-sm">
-                    <Calendar className="w-4 h-4" />
-                    <span>Created: {formatDate(delivery.createdTimestamp)}</span>
-                  </div>
-                </div>
-
-                {/* Right Section - Actions */}
-                <div className="flex flex-col gap-2 lg:min-w-[200px]">
-                  <select
-                    value={delivery.status}
-                    onChange={(e) => handleUpdateStatus(delivery._id, e.target.value)}
-                    className="w-full px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="assigned">Assigned</option>
-                    <option value="accepted">Accepted</option>
-                    <option value="in_progress">In Progress</option>
-                    <option value="picked_up">Picked Up</option>
-                    <option value="in_transit">In Transit</option>
-                    <option value="near_destination">Near Destination</option>
-                    <option value="delivered">Delivered</option>
-                    <option value="failed">Failed</option>
-                    <option value="cancelled">Cancelled</option>
-                  </select>
-
-                  <button
-                    onClick={() => {
-                      setSelectedDelivery(delivery);
-                      setShowDeleteModal(true);
-                    }}
-                    className="w-full bg-red-600 cursor-pointer hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-all flex items-center justify-center gap-2 text-sm"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    Delete
-                  </button>
-
-            
-                </div>
+          {showFilters && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4 pt-4 border-t border-gray-700">
+              <div>
+                <label className="block text-gray-400 text-sm mb-2">Status</label>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="w-full px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="all">All Statuses</option>
+                  <option value="pending">Pending</option>
+                  <option value="in_transit">In Transit</option>
+                  <option value="delivered">Delivered</option>
+                  <option value="failed">Failed</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-gray-400 text-sm mb-2">Priority</label>
+                <select
+                  value={priorityFilter}
+                  onChange={(e) => setPriorityFilter(e.target.value)}
+                  className="w-full px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="all">All Priorities</option>
+                  <option value="high">High</option>
+                  <option value="normal">Normal</option>
+                  <option value="low">Low</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-gray-400 text-sm mb-2">Item Type</label>
+                <select
+                  value={itemTypeFilter}
+                  onChange={(e) => setItemTypeFilter(e.target.value)}
+                  className="w-full px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="all">All Types</option>
+                  <option value="parcel">Parcel</option>
+                  <option value="consolidation">Consolidation</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-gray-400 text-sm mb-2">Delivery Type</label>
+                <select
+                  value={typeFilter}
+                  onChange={(e) => setTypeFilter(e.target.value)}
+                  className="w-full px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="all">All Types</option>
+                  <option value="standard">Standard</option>
+                  <option value="express">Express</option>
+                  <option value="same_day">Same Day</option>
+                </select>
               </div>
             </div>
-          ))
-        )}
+          )}
+        </div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+          <div className="bg-gradient-to-br from-blue-500/10 to-blue-600/10 border border-blue-500/20 rounded-xl p-6">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-gray-400">Total Deliveries</p>
+              <Truck className="w-5 h-5 text-blue-400" />
+            </div>
+            <p className="text-3xl font-bold text-white">{deliveries.length}</p>
+          </div>
+          <div className="bg-gradient-to-br from-yellow-500/10 to-yellow-600/10 border border-yellow-500/20 rounded-xl p-6">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-gray-400">Pending</p>
+              <Clock className="w-5 h-5 text-yellow-400" />
+            </div>
+            <p className="text-3xl font-bold text-white">
+              {deliveries.filter(d => d.status === 'pending').length}
+            </p>
+          </div>
+          <div className="bg-gradient-to-br from-purple-500/10 to-purple-600/10 border border-purple-500/20 rounded-xl p-6">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-gray-400">In Transit</p>
+              <Truck className="w-5 h-5 text-purple-400" />
+            </div>
+            <p className="text-3xl font-bold text-white">
+              {deliveries.filter(d => d.status === 'in_transit').length}
+            </p>
+          </div>
+          <div className="bg-gradient-to-br from-green-500/10 to-green-600/10 border border-green-500/20 rounded-xl p-6">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-gray-400">Delivered</p>
+              <CheckCircle className="w-5 h-5 text-green-400" />
+            </div>
+            <p className="text-3xl font-bold text-white">
+              {deliveries.filter(d => d.status === 'delivered').length}
+            </p>
+          </div>
+        </div>
+
+        {/* Deliveries Table */}
+        <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl border border-gray-700/50 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-900/50">
+                <tr>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                    Delivery Info
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                    Driver
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                    Route
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                    Priority
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                    Created
+                  </th>
+                  <th className="px-6 py-4 text-right text-xs font-medium text-gray-400 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-700">
+                {filteredDeliveries.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-12 text-center">
+                      <div className="flex flex-col items-center justify-center">
+                        <Package className="w-16 h-16 text-gray-600 mb-4" />
+                        <p className="text-gray-400 text-lg mb-2">No deliveries found</p>
+                        <p className="text-gray-500">Create a new delivery to get started</p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  filteredDeliveries.map((delivery) => (
+                    <tr key={delivery._id} className="hover:bg-gray-700/30 transition-colors">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-blue-500/20 rounded-lg">
+                            {delivery.deliveryItemType === 'parcel' ? (
+                              <Package className="w-5 h-5 text-blue-400" />
+                            ) : (
+                              <Layers className="w-5 h-5 text-purple-400" />
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-white font-medium">{delivery.deliveryNumber}</p>
+                            <p className="text-gray-400 text-sm">
+                              {delivery.deliveryItemType === 'parcel' 
+                                ? `${delivery.parcels.length} parcel(s)` 
+                                : 'Consolidation'}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <User className="w-4 h-4 text-gray-400" />
+                          <span className="text-white">{delivery.assignedDriver?.userName || 'N/A'}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 text-sm">
+                            <MapPin className="w-3 h-3 text-green-400" />
+                            <span className="text-gray-300">
+                              {delivery.fromLocation.type === 'warehouse' 
+                                ? 'Warehouse' 
+                                : delivery.fromLocation.locationName || 'Custom Location'}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm">
+                            <MapPin className="w-3 h-3 text-red-400" />
+                            <span className="text-gray-300">
+                              {delivery.toLocation.type === 'warehouse' 
+                                ? 'Warehouse' 
+                                : delivery.toLocation.locationName || 'Custom Location'}
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(delivery.status)}`}>
+                          {getStatusIcon(delivery.status)}
+                          {delivery.status.replace('_', ' ').toUpperCase()}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${getPriorityColor(delivery.priority)}`}>
+                          {delivery.priority.toUpperCase()}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2 text-sm text-gray-300">
+                          <Calendar className="w-4 h-4 text-gray-400" />
+                          {formatDate(delivery.createdTimestamp)}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => {
+                              setSelectedDelivery(delivery);
+                              setShowDetailsModal(true);
+                            }}
+                            className="p-2 hover:bg-blue-500/20 text-blue-400 rounded-lg transition-all"
+                            title="View Details"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          {delivery.status !== 'delivered' && delivery.status !== 'cancelled' && (
+                            <button
+                              onClick={() => {
+                                const newStatus = delivery.status === 'pending' ? 'in_transit' : 'delivered';
+                                handleUpdateStatus(delivery._id, newStatus);
+                              }}
+                              className="p-2 hover:bg-green-500/20 text-green-400 rounded-lg transition-all"
+                              title="Update Status"
+                            >
+                              <RefreshCw className="w-4 h-4" />
+                            </button>
+                          )}
+                          <button
+                            onClick={() => {
+                              setSelectedDelivery(delivery);
+                              setShowDeleteModal(true);
+                            }}
+                            className="p-2 hover:bg-red-500/20 text-red-400 rounded-lg transition-all"
+                            title="Delete"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
       {/* Create Delivery Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] ">
-          <div className="bg-gray-900 overflow-scroll [scrollbar-width:none] [&::-webkit-scrollbar]:hidden border border-gray-700 rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-gray-900 border-b border-gray-700 px-6 py-4 flex justify-between items-center">
-              <h3 className="text-white text-2xl font-bold">Create New Delivery</h3>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
+          <div className="bg-gray-800 rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto border border-gray-700">
+            <div className="sticky top-0 bg-gray-800 border-b border-gray-700 px-6 py-4 flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-white">Create New Delivery</h2>
               <button
                 onClick={() => {
                   setShowCreateModal(false);
                   resetForm();
                 }}
-                className="text-gray-400 hover:text-white transition-colors"
+                className="p-2 hover:bg-gray-700 rounded-lg transition-all"
               >
-                <X className="w-6 h-6" />
+                <X className="w-5 h-5 text-gray-400" />
               </button>
             </div>
 
             <form onSubmit={handleCreateDelivery} className="p-6 space-y-6">
               {/* Delivery Item Type Selection */}
               <div>
-                <label className="block text-gray-400 text-sm mb-2">Delivery Type *</label>
+                <label className="block text-gray-400 text-sm mb-2">Delivery Item Type *</label>
                 <div className="grid grid-cols-2 gap-4">
                   <button
                     type="button"
-                    onClick={() => setFormData({ ...formData, deliveryItemType: "parcel", consolidation: "" })}
+                    onClick={() => {
+                      setFormData({ ...formData, deliveryItemType: 'parcel', consolidation: '' });
+                    }}
                     className={`p-4 rounded-lg border-2 transition-all ${
-                      formData.deliveryItemType === "parcel"
-                        ? "border-blue-500 bg-blue-500/20"
-                        : "border-gray-700 bg-gray-800 hover:border-gray-600"
+                      formData.deliveryItemType === 'parcel'
+                        ? 'border-blue-500 bg-blue-500/20'
+                        : 'border-gray-700 bg-gray-900 hover:border-gray-600'
                     }`}
                   >
-                    <Package className={`w-8 h-8 mx-auto mb-2 ${
-                      formData.deliveryItemType === "parcel" ? "text-blue-400" : "text-gray-400"
-                    }`} />
-                    <p className={`font-medium ${
-                      formData.deliveryItemType === "parcel" ? "text-blue-400" : "text-gray-300"
-                    }`}>
-                      Parcel Delivery
-                    </p>
-                    <p className="text-xs text-gray-400 mt-1">Deliver individual parcels</p>
+                    <Package className={`w-8 h-8 mx-auto mb-2 ${formData.deliveryItemType === 'parcel' ? 'text-blue-400' : 'text-gray-400'}`} />
+                    <p className="text-white font-medium">Parcel(s)</p>
                   </button>
-
                   <button
                     type="button"
-                    onClick={() => setFormData({ ...formData, deliveryItemType: "consolidation", parcels: [] })}
+                    onClick={() => {
+                      setFormData({ ...formData, deliveryItemType: 'consolidation', parcels: [] });
+                    }}
                     className={`p-4 rounded-lg border-2 transition-all ${
-                      formData.deliveryItemType === "consolidation"
-                        ? "border-cyan-500 bg-cyan-500/20"
-                        : "border-gray-700 bg-gray-800 hover:border-gray-600"
+                      formData.deliveryItemType === 'consolidation'
+                        ? 'border-purple-500 bg-purple-500/20'
+                        : 'border-gray-700 bg-gray-900 hover:border-gray-600'
                     }`}
                   >
-                    <Layers className={`w-8 h-8 mx-auto mb-2 ${
-                      formData.deliveryItemType === "consolidation" ? "text-cyan-400" : "text-gray-400"
-                    }`} />
-                    <p className={`font-medium ${
-                      formData.deliveryItemType === "consolidation" ? "text-cyan-400" : "text-gray-300"
-                    }`}>
-                      Consolidation Delivery
-                    </p>
-                    <p className="text-xs text-gray-400 mt-1">Deliver a consolidated shipment</p>
+                    <Layers className={`w-8 h-8 mx-auto mb-2 ${formData.deliveryItemType === 'consolidation' ? 'text-purple-400' : 'text-gray-400'}`} />
+                    <p className="text-white font-medium">Consolidation</p>
                   </button>
                 </div>
               </div>
 
-              {/* Parcels Selection - Only show if parcel delivery */}
-              {formData.deliveryItemType === "parcel" && (
+              {/* Parcel Selection */}
+              {formData.deliveryItemType === 'parcel' && (
                 <div>
-                  <label className="block text-gray-400 text-sm mb-2">
-                    Select Parcels * 
-                    <span className="text-xs text-gray-500 ml-2">(Form will auto-fill from first selected parcel)</span>
-                  </label>
-                  <div className="max-h-40 overflow-y-auto bg-gray-800 border border-gray-700 rounded-lg p-3 space-y-2">
-                    {parcels.map(parcel => (
-                      <label key={parcel._id} className="flex items-center gap-2 cursor-pointer hover:bg-gray-700 p-2 rounded">
-                        <input
-                          type="checkbox"
-                          checked={formData.parcels.includes(parcel._id)}
-                          onChange={(e) => handleParcelSelection(parcel._id, e.target.checked)}
-                          className="w-4 h-4"
-                        />
-                        <div className="flex-1">
-                          <span className="text-white text-sm">{parcel.trackingNumber}</span>
-                          <span className="text-gray-400 text-xs ml-2">({parcel.status})</span>
-                          {(parcel as any).receiver?.name && (
-                            <div className="text-xs text-gray-500 mt-1">
-                              To: {(parcel as any).receiver.name} - {(parcel as any).receiver?.address}
-                            </div>
-                          )}
-                        </div>
-                      </label>
-                    ))}
+                  <label className="block text-gray-400 text-sm mb-2">Select Parcels *</label>
+                  <div className="max-h-48 overflow-y-auto bg-gray-900 rounded-lg border border-gray-700 p-4 space-y-2">
+                    {parcels.length === 0 ? (
+                      <p className="text-gray-500 text-center py-4">No available parcels</p>
+                    ) : (
+                      parcels.map((parcel) => (
+                        <label key={parcel._id} className="flex items-center gap-3 p-3 hover:bg-gray-800 rounded-lg cursor-pointer transition-all">
+                          <input
+                            type="checkbox"
+                            checked={formData.parcels.includes(parcel._id)}
+                            onChange={(e) => handleParcelSelection(parcel._id, e.target.checked)}
+                            className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
+                          />
+                          <div className="flex-1">
+                            <p className="text-white font-medium">{parcel.trackingNumber}</p>
+                            <p className="text-gray-400 text-sm">{parcel.receiver?.name || 'No receiver'}</p>
+                          </div>
+                          <span className={`px-2 py-1 rounded text-xs ${getStatusColor(parcel.status)}`}>
+                            {parcel.status}
+                          </span>
+                        </label>
+                      ))
+                    )}
                   </div>
-                  {parcels.length === 0 && (
-                    <p className="text-gray-500 text-sm mt-2">No available parcels</p>
-                  )}
                 </div>
               )}
 
-              {/* Consolidation Selection - Only show if consolidation delivery */}
-              {formData.deliveryItemType === "consolidation" && (
+              {/* Consolidation Selection */}
+              {formData.deliveryItemType === 'consolidation' && (
                 <div>
-                  <label className="block text-gray-400 text-sm mb-2">
-                    Select Consolidation *
-                    <span className="text-xs text-gray-500 ml-2">(Form will auto-fill from consolidation data)</span>
-                  </label>
+                  <label className="block text-gray-400 text-sm mb-2">Select Consolidation *</label>
                   <select
                     required
                     value={formData.consolidation}
                     onChange={(e) => handleConsolidationSelection(e.target.value)}
-                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">Select a consolidation</option>
-                    {consolidations.map(consolidation => (
-                      <option key={consolidation._id} value={consolidation._id}>
-                        {consolidation.referenceCode} - {consolidation.masterTrackingNumber} ({(consolidation as any).parcels?.length || 0} parcels)
+                    {consolidations.map((cons) => (
+                      <option key={cons._id} value={cons._id}>
+                        {cons.referenceCode} - {cons.parcels.length} parcels
                       </option>
                     ))}
                   </select>
-                  {consolidations.length === 0 && (
-                    <p className="text-gray-500 text-sm mt-2">No available consolidations</p>
-                  )}
-                  
-                  {/* Show consolidation details when selected */}
-                  {formData.consolidation && (() => {
-                    const selectedCons = consolidations.find(c => c._id === formData.consolidation);
-                    return selectedCons ? (
-                      <div className="mt-3 p-3 bg-cyan-500/10 border border-cyan-500/30 rounded-lg">
-                        <p className="text-cyan-400 text-sm font-medium mb-1">Consolidation Details:</p>
-                        <p className="text-gray-300 text-xs">Reference: {selectedCons.referenceCode}</p>
-                        <p className="text-gray-300 text-xs">Tracking: {selectedCons.masterTrackingNumber}</p>
-                        <p className="text-gray-300 text-xs">Parcels: {(selectedCons as any).parcels?.length || 0}</p>
-                        {(selectedCons as any).warehouseId?.name && (
-                          <p className="text-gray-300 text-xs">Warehouse: {(selectedCons as any).warehouseId.name}</p>
-                        )}
-                      </div>
-                    ) : null;
-                  })()}
                 </div>
               )}
 
               {/* Driver Selection */}
               <div>
-                <label className="block text-gray-400 text-sm mb-2">Assign Driver *</label>
+                <label className="block text-gray-400 text-sm mb-2">Assigned Driver *</label>
                 <select
                   required
                   value={formData.assignedDriver}
                   onChange={(e) => setFormData({ ...formData, assignedDriver: e.target.value })}
-                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Select a driver</option>
-                  {drivers.map(driver => (
+                  {drivers.map((driver) => (
                     <option key={driver._id} value={driver._id}>
-                      {driver.userName}
+                      {driver.userName} ({driver.entityId})
                     </option>
                   ))}
                 </select>
               </div>
 
               {/* From Location */}
-              <div className="bg-gray-800 border border-gray-700 rounded-lg p-4">
-                <h4 className="text-white font-semibold mb-2 flex items-center gap-2">
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                  <MapPin className="w-5 h-5 text-green-400" />
                   From Location
-                  <span className="text-xs text-gray-500 font-normal">(Auto-filled, but editable)</span>
-                </h4>
-                <div className="space-y-4">
+                </h3>
+                
+                <div>
+                  <label className="block text-gray-400 text-sm mb-2">Location Type *</label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, fromLocationType: 'warehouse' })}
+                      className={`p-3 rounded-lg border-2 transition-all ${
+                        formData.fromLocationType === 'warehouse'
+                          ? 'border-blue-500 bg-blue-500/20 text-white'
+                          : 'border-gray-700 bg-gray-900 text-gray-400 hover:border-gray-600'
+                      }`}
+                    >
+                      Warehouse
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, fromLocationType: 'address' })}
+                      className={`p-3 rounded-lg border-2 transition-all ${
+                        formData.fromLocationType === 'address'
+                          ? 'border-blue-500 bg-blue-500/20 text-white'
+                          : 'border-gray-700 bg-gray-900 text-gray-400 hover:border-gray-600'
+                      }`}
+                    >
+                      Custom Address
+                    </button>
+                  </div>
+                </div>
+
+                {formData.fromLocationType === 'warehouse' ? (
                   <div>
-                    <label className="block text-gray-400 text-sm mb-2">Location Type *</label>
+                    <label className="block text-gray-400 text-sm mb-2">Select Warehouse *</label>
                     <select
-                      value={formData.fromLocationType}
-                      onChange={(e) => setFormData({ ...formData, fromLocationType: e.target.value })}
+                      required
+                      value={formData.fromWarehouseId}
+                      onChange={(e) => setFormData({ ...formData, fromWarehouseId: e.target.value })}
                       className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
-                      <option value="warehouse">Warehouse</option>
-                      <option value="address">Address</option>
+                      <option value="">Select a warehouse</option>
+                      {warehouses.map((warehouse) => (
+                        <option key={warehouse._id} value={warehouse._id}>
+                          {warehouse.name} ({warehouse.code})
+                        </option>
+                      ))}
                     </select>
                   </div>
-
-                  {formData.fromLocationType === "warehouse" ? (
+                ) : (
+                  <>
                     <div>
-                      <label className="block text-gray-400 text-sm mb-2">Select Warehouse *</label>
-                      <select
-                        required
-                        value={formData.fromWarehouseId}
-                        onChange={(e) => setFormData({ ...formData, fromWarehouseId: e.target.value })}
-                        className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="">Select a warehouse</option>
-                        {warehouses.map(warehouse => (
-                          <option key={warehouse._id} value={warehouse._id}>
-                            {warehouse.name} ({warehouse.code})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  ) : (
-                    <>
-                      <div>
-                        <label className="block text-gray-400 text-sm mb-2">Address *</label>
+                      <label className="block text-gray-400 text-sm mb-2">Address *</label>
+                      <div className="flex gap-2">
                         <input
                           type="text"
                           required
                           value={formData.fromAddress}
                           onChange={(e) => setFormData({ ...formData, fromAddress: e.target.value })}
                           placeholder="Enter full address"
+                          className="flex-1 px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleGeocodeFromAddress}
+                          disabled={isGeocodingFrom || !formData.fromAddress}
+                          className="px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-all flex items-center gap-2"
+                        >
+                          {isGeocodingFrom ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
+                              Fetching...
+                            </>
+                          ) : (
+                            <>
+                              <Navigation className="w-4 h-4" />
+                              Get Coordinates
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-gray-400 text-sm mb-2">Latitude *</label>
+                        <input
+                          type="number"
+                          step="any"
+                          required
+                          value={formData.fromLatitude}
+                          onChange={(e) => setFormData({ ...formData, fromLatitude: e.target.value })}
+                          placeholder="6.9271"
                           className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-gray-400 text-sm mb-2">Latitude *</label>
-                          <input
-                            type="number"
-                            step="any"
-                            required
-                            value={formData.fromLatitude}
-                            onChange={(e) => setFormData({ ...formData, fromLatitude: e.target.value })}
-                            placeholder="6.9271"
-                            className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-gray-400 text-sm mb-2">Longitude *</label>
-                          <input
-                            type="number"
-                            step="any"
-                            required
-                            value={formData.fromLongitude}
-                            onChange={(e) => setFormData({ ...formData, fromLongitude: e.target.value })}
-                            placeholder="79.8612"
-                            className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
-                        </div>
                       </div>
                       <div>
-                        <label className="block text-gray-400 text-sm mb-2">Location Name</label>
+                        <label className="block text-gray-400 text-sm mb-2">Longitude *</label>
                         <input
-                          type="text"
-                          value={formData.fromLocationName}
-                          onChange={(e) => setFormData({ ...formData, fromLocationName: e.target.value })}
-                          placeholder="e.g., Customer Pickup Point"
+                          type="number"
+                          step="any"
+                          required
+                          value={formData.fromLongitude}
+                          onChange={(e) => setFormData({ ...formData, fromLongitude: e.target.value })}
+                          placeholder="79.8612"
                           className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                       </div>
-                    </>
-                  )}
-                </div>
+                    </div>
+                    <div>
+                      <label className="block text-gray-400 text-sm mb-2">Location Name</label>
+                      <input
+                        type="text"
+                        value={formData.fromLocationName}
+                        onChange={(e) => setFormData({ ...formData, fromLocationName: e.target.value })}
+                        placeholder="e.g., Customer Pickup Point"
+                        className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* To Location */}
-              <div className="bg-gray-800 border border-gray-700 rounded-lg p-4">
-                <h4 className="text-white font-semibold mb-2 flex items-center gap-2">
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                  <MapPin className="w-5 h-5 text-red-400" />
                   To Location
-                  <span className="text-xs text-gray-500 font-normal">(Auto-filled, but editable)</span>
-                </h4>
-                <div className="space-y-4">
+                </h3>
+                
+                <div>
+                  <label className="block text-gray-400 text-sm mb-2">Location Type *</label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, toLocationType: 'warehouse' })}
+                      className={`p-3 rounded-lg border-2 transition-all ${
+                        formData.toLocationType === 'warehouse'
+                          ? 'border-blue-500 bg-blue-500/20 text-white'
+                          : 'border-gray-700 bg-gray-900 text-gray-400 hover:border-gray-600'
+                      }`}
+                    >
+                      Warehouse
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, toLocationType: 'address' })}
+                      className={`p-3 rounded-lg border-2 transition-all ${
+                        formData.toLocationType === 'address'
+                          ? 'border-blue-500 bg-blue-500/20 text-white'
+                          : 'border-gray-700 bg-gray-900 text-gray-400 hover:border-gray-600'
+                      }`}
+                    >
+                      Custom Address
+                    </button>
+                  </div>
+                </div>
+
+                {formData.toLocationType === 'warehouse' ? (
                   <div>
-                    <label className="block text-gray-400 text-sm mb-2">Location Type *</label>
+                    <label className="block text-gray-400 text-sm mb-2">Select Warehouse *</label>
                     <select
-                      value={formData.toLocationType}
-                      onChange={(e) => setFormData({ ...formData, toLocationType: e.target.value })}
+                      required
+                      value={formData.toWarehouseId}
+                      onChange={(e) => setFormData({ ...formData, toWarehouseId: e.target.value })}
                       className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
-                      <option value="warehouse">Warehouse</option>
-                      <option value="address">Address</option>
+                      <option value="">Select a warehouse</option>
+                      {warehouses.map((warehouse) => (
+                        <option key={warehouse._id} value={warehouse._id}>
+                          {warehouse.name} ({warehouse.code})
+                        </option>
+                      ))}
                     </select>
                   </div>
-
-                  {formData.toLocationType === "warehouse" ? (
+                ) : (
+                  <>
                     <div>
-                      <label className="block text-gray-400 text-sm mb-2">Select Warehouse *</label>
-                      <select
-                        required
-                        value={formData.toWarehouseId}
-                        onChange={(e) => setFormData({ ...formData, toWarehouseId: e.target.value })}
-                        className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="">Select a warehouse</option>
-                        {warehouses.map(warehouse => (
-                          <option key={warehouse._id} value={warehouse._id}>
-                            {warehouse.name} ({warehouse.code})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  ) : (
-                    <>
-                      <div>
-                        <label className="block text-gray-400 text-sm mb-2">Address *</label>
+                      <label className="block text-gray-400 text-sm mb-2">Address *</label>
+                      <div className="flex gap-2">
                         <input
                           type="text"
                           required
                           value={formData.toAddress}
                           onChange={(e) => setFormData({ ...formData, toAddress: e.target.value })}
                           placeholder="Enter full address"
+                          className="flex-1 px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleGeocodeToAddress}
+                          disabled={isGeocodingTo || !formData.toAddress}
+                          className="px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-all flex items-center gap-2"
+                        >
+                          {isGeocodingTo ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
+                              Fetching...
+                            </>
+                          ) : (
+                            <>
+                              <Navigation className="w-4 h-4" />
+                              Get Coordinates
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-gray-400 text-sm mb-2">Latitude *</label>
+                        <input
+                          type="number"
+                          step="any"
+                          required
+                          value={formData.toLatitude}
+                          onChange={(e) => setFormData({ ...formData, toLatitude: e.target.value })}
+                          placeholder="7.2008"
                           className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-gray-400 text-sm mb-2">Latitude *</label>
-                          <input
-                            type="number"
-                            step="any"
-                            required
-                            value={formData.toLatitude}
-                            onChange={(e) => setFormData({ ...formData, toLatitude: e.target.value })}
-                            placeholder="7.2008"
-                            className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-gray-400 text-sm mb-2">Longitude *</label>
-                          <input
-                            type="number"
-                            step="any"
-                            required
-                            value={formData.toLongitude}
-                            onChange={(e) => setFormData({ ...formData, toLongitude: e.target.value })}
-                            placeholder="79.8358"
-                            className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
-                        </div>
                       </div>
                       <div>
-                        <label className="block text-gray-400 text-sm mb-2">Location Name</label>
+                        <label className="block text-gray-400 text-sm mb-2">Longitude *</label>
                         <input
-                          type="text"
-                          value={formData.toLocationName}
-                          onChange={(e) => setFormData({ ...formData, toLocationName: e.target.value })}
-                          placeholder="e.g., Customer Delivery Point"
+                          type="number"
+                          step="any"
+                          required
+                          value={formData.toLongitude}
+                          onChange={(e) => setFormData({ ...formData, toLongitude: e.target.value })}
+                          placeholder="79.8358"
                           className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                       </div>
-                    </>
-                  )}
-                </div>
+                    </div>
+                    <div>
+                      <label className="block text-gray-400 text-sm mb-2">Location Name</label>
+                      <input
+                        type="text"
+                        value={formData.toLocationName}
+                        onChange={(e) => setFormData({ ...formData, toLocationName: e.target.value })}
+                        placeholder="e.g., Customer Delivery Point"
+                        className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* Additional Details */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-gray-400 text-sm mb-2">Priority</label>
+                  <label className="block text-gray-400 text-sm mb-2">Priority *</label>
                   <select
+                    required
                     value={formData.priority}
                     onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
-                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="low">Low</option>
                     <option value="normal">Normal</option>
                     <option value="high">High</option>
-                    <option value="urgent">Urgent</option>
                   </select>
                 </div>
-
                 <div>
                   <label className="block text-gray-400 text-sm mb-2">Estimated Delivery Time</label>
                   <input
                     type="datetime-local"
                     value={formData.estimatedDeliveryTime}
                     onChange={(e) => setFormData({ ...formData, estimatedDeliveryTime: e.target.value })}
-                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
               </div>
@@ -1221,9 +1329,9 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
                 <textarea
                   value={formData.deliveryInstructions}
                   onChange={(e) => setFormData({ ...formData, deliveryInstructions: e.target.value })}
-                  placeholder="Special instructions for the driver..."
+                  placeholder="Special delivery instructions..."
                   rows={3}
-                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                 />
               </div>
 
@@ -1232,13 +1340,13 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
                 <textarea
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  placeholder="Internal notes..."
-                  rows={2}
-                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Additional notes..."
+                  rows={3}
+                  className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                 />
               </div>
 
-              {/* Form Actions */}
+              {/* Submit Buttons */}
               <div className="flex gap-4 pt-4 border-t border-gray-700">
                 <button
                   type="button"
@@ -1246,13 +1354,13 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
                     setShowCreateModal(false);
                     resetForm();
                   }}
-                  className="flex-1 bg-gray-700 cursor-pointer hover:bg-gray-600 text-white px-6 py-3 rounded-lg font-medium transition-all"
+                  className="flex-1 px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-all"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 cursor-pointer bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-6 py-3 rounded-lg font-medium transition-all shadow-lg shadow-blue-600/30"
+                  className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-lg transition-all"
                 >
                   Create Delivery
                 </button>
@@ -1262,40 +1370,220 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
         </div>
       )}
 
+      {/* Details Modal */}
+      {showDetailsModal && selectedDelivery && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
+          <div className="bg-gray-800 rounded-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto border border-gray-700">
+            <div className="sticky top-0 bg-gray-800 border-b border-gray-700 px-6 py-4 flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-white">Delivery Details</h2>
+              <button
+                onClick={() => {
+                  setShowDetailsModal(false);
+                  setSelectedDelivery(null);
+                }}
+                className="p-2 hover:bg-gray-700 rounded-lg transition-all"
+              >
+                <X className="w-5 h-5 text-gray-400" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Basic Info */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-gray-400 text-sm">Delivery Number</p>
+                  <p className="text-white font-medium">{selectedDelivery.deliveryNumber}</p>
+                </div>
+                <div>
+                  <p className="text-gray-400 text-sm">Status</p>
+                  <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(selectedDelivery.status)}`}>
+                    {getStatusIcon(selectedDelivery.status)}
+                    {selectedDelivery.status.replace('_', ' ').toUpperCase()}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-gray-400 text-sm">Priority</p>
+                  <div className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${getPriorityColor(selectedDelivery.priority)}`}>
+                    {selectedDelivery.priority.toUpperCase()}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-gray-400 text-sm">Item Type</p>
+                  <p className="text-white font-medium capitalize">{selectedDelivery.deliveryItemType}</p>
+                </div>
+              </div>
+
+              {/* Driver Info */}
+              <div>
+                <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
+                  <User className="w-5 h-5 text-blue-400" />
+                  Driver Information
+                </h3>
+                <div className="bg-gray-900 rounded-lg p-4">
+                  <p className="text-gray-400 text-sm">Driver Name</p>
+                  <p className="text-white font-medium">{selectedDelivery.assignedDriver?.userName || 'N/A'}</p>
+                  <p className="text-gray-400 text-sm mt-2">Driver ID</p>
+                  <p className="text-white font-medium">{selectedDelivery.assignedDriver?.entityId || 'N/A'}</p>
+                </div>
+              </div>
+
+              {/* Route Information */}
+              <div>
+                <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
+                  <MapPin className="w-5 h-5 text-green-400" />
+                  Route Information
+                </h3>
+                <div className="space-y-4">
+                  <div className="bg-gray-900 rounded-lg p-4">
+                    <p className="text-green-400 text-sm font-medium mb-2">From Location</p>
+                    <p className="text-white">
+                      {selectedDelivery.fromLocation.type === 'warehouse' 
+                        ? 'Warehouse' 
+                        : selectedDelivery.fromLocation.locationName || 'Custom Location'}
+                    </p>
+                    {selectedDelivery.fromLocation.address && (
+                      <p className="text-gray-400 text-sm mt-1">{selectedDelivery.fromLocation.address}</p>
+                    )}
+                    {selectedDelivery.fromLocation.latitude && selectedDelivery.fromLocation.longitude && (
+                      <p className="text-gray-400 text-sm mt-1">
+                        Coordinates: {selectedDelivery.fromLocation.latitude}, {selectedDelivery.fromLocation.longitude}
+                      </p>
+                    )}
+                  </div>
+                  <div className="bg-gray-900 rounded-lg p-4">
+                    <p className="text-red-400 text-sm font-medium mb-2">To Location</p>
+                    <p className="text-white">
+                      {selectedDelivery.toLocation.type === 'warehouse' 
+                        ? 'Warehouse' 
+                        : selectedDelivery.toLocation.locationName || 'Custom Location'}
+                    </p>
+                    {selectedDelivery.toLocation.address && (
+                      <p className="text-gray-400 text-sm mt-1">{selectedDelivery.toLocation.address}</p>
+                    )}
+                    {selectedDelivery.toLocation.latitude && selectedDelivery.toLocation.longitude && (
+                      <p className="text-gray-400 text-sm mt-1">
+                        Coordinates: {selectedDelivery.toLocation.latitude}, {selectedDelivery.toLocation.longitude}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Items */}
+              <div>
+                <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
+                  <Package className="w-5 h-5 text-purple-400" />
+                  Items
+                </h3>
+                <div className="bg-gray-900 rounded-lg p-4">
+                  {selectedDelivery.deliveryItemType === 'parcel' ? (
+                    <div className="space-y-2">
+                      {selectedDelivery.parcels.map((parcel, index) => (
+                        <div key={index} className="flex items-center justify-between py-2 border-b border-gray-700 last:border-b-0">
+                          <span className="text-white">{parcel.trackingNumber || `Parcel ${index + 1}`}</span>
+                          <span className={`px-2 py-1 rounded text-xs ${getStatusColor(parcel.status || 'pending')}`}>
+                            {parcel.status || 'pending'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div>
+                      <p className="text-white font-medium">
+                        {selectedDelivery.consolidation?.referenceCode || 'Consolidation'}
+                      </p>
+                      <p className="text-gray-400 text-sm">
+                        {selectedDelivery.consolidation?.parcels?.length || 0} parcels
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Timestamps */}
+              <div>
+                <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
+                  <Calendar className="w-5 h-5 text-blue-400" />
+                  Timeline
+                </h3>
+                <div className="bg-gray-900 rounded-lg p-4 space-y-3">
+                  <div>
+                    <p className="text-gray-400 text-sm">Created</p>
+                    <p className="text-white">{formatDate(selectedDelivery.createdTimestamp)}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400 text-sm">Last Updated</p>
+                    <p className="text-white">{formatDate(selectedDelivery.updatedTimestamp)}</p>
+                  </div>
+                  {selectedDelivery.estimatedDeliveryTime && (
+                    <div>
+                      <p className="text-gray-400 text-sm">Estimated Delivery</p>
+                      <p className="text-white">{formatDate(selectedDelivery.estimatedDeliveryTime)}</p>
+                    </div>
+                  )}
+                  {selectedDelivery.actualDeliveryTime && (
+                    <div>
+                      <p className="text-gray-400 text-sm">Actual Delivery</p>
+                      <p className="text-white">{formatDate(selectedDelivery.actualDeliveryTime)}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Instructions & Notes */}
+              {(selectedDelivery.deliveryInstructions || selectedDelivery.notes) && (
+                <div>
+                  <h3 className="text-lg font-semibold text-white mb-3">Additional Information</h3>
+                  <div className="bg-gray-900 rounded-lg p-4 space-y-3">
+                    {selectedDelivery.deliveryInstructions && (
+                      <div>
+                        <p className="text-gray-400 text-sm">Delivery Instructions</p>
+                        <p className="text-white">{selectedDelivery.deliveryInstructions}</p>
+                      </div>
+                    )}
+                    {selectedDelivery.notes && (
+                      <div>
+                        <p className="text-gray-400 text-sm">Notes</p>
+                        <p className="text-white">{selectedDelivery.notes}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Delete Confirmation Modal */}
       {showDeleteModal && selectedDelivery && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-900 border border-gray-700 rounded-xl max-w-md w-full p-6">
-            <div className="flex items-center gap-4 mb-6">
-              <div className="bg-red-500/20 rounded-full w-12 h-12 flex items-center justify-center">
-                <AlertCircle className="w-6 h-6 text-red-400" />
-              </div>
-              <div>
-                <h3 className="text-white text-xl font-bold">Delete Delivery</h3>
-                <p className="text-gray-400 text-sm">This action cannot be undone</p>
-              </div>
+          <div className="bg-gray-800 rounded-xl max-w-md w-full border border-gray-700">
+            <div className="px-6 py-4 border-b border-gray-700">
+              <h2 className="text-xl font-bold text-white">Confirm Deletion</h2>
             </div>
-
-            <p className="text-gray-300 mb-6">
-              Are you sure you want to delete delivery <span className="font-bold text-white">{selectedDelivery.deliveryNumber}</span>?
-            </p>
-
-            <div className="flex gap-4">
-              <button
-                onClick={() => {
-                  setShowDeleteModal(false);
-                  setSelectedDelivery(null);
-                }}
-                className="flex-1 bg-gray-700 hover:bg-gray-600 text-white px-6 py-3 rounded-lg font-medium transition-all"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleDeleteDelivery}
-                className="flex-1 bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg font-medium transition-all"
-              >
-                Delete
-              </button>
+            <div className="p-6">
+              <p className="text-gray-300 mb-6">
+                Are you sure you want to delete delivery <span className="font-semibold text-white">{selectedDelivery.deliveryNumber}</span>? 
+                This action cannot be undone.
+              </p>
+              <div className="flex gap-4">
+                <button
+                  onClick={() => {
+                    setShowDeleteModal(false);
+                    setSelectedDelivery(null);
+                  }}
+                  className="flex-1 px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteDelivery}
+                  className="flex-1 px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-all"
+                >
+                  Delete
+                </button>
+              </div>
             </div>
           </div>
         </div>
