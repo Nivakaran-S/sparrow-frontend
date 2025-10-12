@@ -227,7 +227,7 @@ const DeliveryHistory = ({ userId, setActiveTab }: { userId?: string; setActiveT
       .map(([date, dayDeliveries]) => {
         let totalDistance = 0;
         let totalEarnings = 0;
-        let totalDeliveryCount = dayDeliveries.length;
+        const totalDeliveryCount = dayDeliveries.length;
 
         dayDeliveries.forEach((delivery) => {
           // Estimate distance (simplified calculation)
