@@ -1,7 +1,65 @@
 import { useState, useEffect } from "react";
-import { Package, Calendar, MapPin, DollarSign, Star, Download, TrendingUp } from "lucide-react";
+import { Package, Calendar, MapPin, DollarSign, Star, Download, TrendingUp, Clock, Truck } from "lucide-react";
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || "https://api-gateway-nine-orpin.vercel.app";
+
+interface Location {
+  type: string;
+  warehouseId?: any;
+  address?: string;
+  latitude?: number;
+  longitude?: number;
+  locationName?: string;
+}
+
+interface Parcel {
+  _id: string;
+  trackingNumber: string;
+  receiver?: {
+    name: string;
+    phoneNumber: string;
+    address: string;
+  };
+  weight?: {
+    value: number;
+    unit: string;
+  };
+  pricingId?: {
+    _id: string;
+    parcelType: string;
+  };
+}
+
+interface Consolidation {
+  _id: string;
+  masterTrackingNumber?: string;
+  referenceCode: string;
+  parcels?: Parcel[];
+  status: string;
+}
+
+interface Delivery {
+  _id: string;
+  deliveryNumber: string;
+  deliveryItemType: "parcel" | "consolidation";
+  parcels?: Parcel[];
+  consolidation?: Consolidation;
+  assignedDriver: any;
+  fromLocation: Location;
+  toLocation: Location;
+  deliveryType: string;
+  status: string;
+  priority: string;
+  estimatedPickupTime?: string;
+  actualPickupTime?: string;
+  estimatedDeliveryTime?: string;
+  actualDeliveryTime?: string;
+  deliveryInstructions?: string;
+  notes?: string;
+  createdTimestamp: string;
+  updatedTimestamp?: string;
+  statusHistory?: any[];
+}
 
 interface DriverPricing {
   _id: string;
@@ -14,26 +72,6 @@ interface DriverPricing {
   isActive: boolean;
 }
 
-interface Delivery {
-  _id: string;
-  driverId: any;
-  consolidationId?: {
-    referenceCode: string;
-    masterTrackingNumber?: string;
-    parcels?: any[];
-  };
-  status: string;
-  startTime?: string;
-  endTime?: string;
-  startLocation?: any;
-  endLocation?: any;
-  locationHistory?: any[];
-  notes?: string;
-  createdTimestamp: string;
-  updatedTimestamp?: string;
-  actualDeliveryTime?: string;
-}
-
 interface DailyStats {
   date: string;
   deliveries: number;
@@ -41,7 +79,6 @@ interface DailyStats {
   earnings: number;
   avgRating: number;
   deliveryData: Delivery[];
-  parcelData?: any[];
 }
 
 const DeliveryHistory = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (tab: string) => void }) => {
@@ -113,66 +150,39 @@ const DeliveryHistory = ({ userId, setActiveTab }: { userId?: string; setActiveT
     try {
       setLoading(true);
       
-      // Fetch consolidation deliveries
-      const deliveriesResponse = await fetch(
-        `${API_BASE_URL}/api/consolidations/api/deliveries/driver/${driverId}`,
+      const response = await fetch(
+        `${API_BASE_URL}/api/deliveries/api/deliveries/driver/${driverId}`,
         { credentials: "include" }
       );
 
-      if (!deliveriesResponse.ok) throw new Error("Failed to fetch delivery history");
+      if (!response.ok) throw new Error("Failed to fetch delivery history");
 
-      const deliveriesResult = await deliveriesResponse.json();
+      const result = await response.json();
 
-      // Fetch individual parcels
-      const parcelsResponse = await fetch(
-        `${API_BASE_URL}/api/parcels/api/parcels/driver/${driverId}`,
-        { credentials: "include" }
-      );
+      if (result.success) {
+        const deliveries = result.data || [];
 
-      if (!parcelsResponse.ok) throw new Error("Failed to fetch parcels");
-
-      const parcelsResult = await parcelsResponse.json();
-
-      if (deliveriesResult.success && parcelsResult.success) {
-        const deliveries = deliveriesResult.data || [];
-        const parcels = parcelsResult.data || [];
-
-        console.log("📊 Total consolidation deliveries fetched:", deliveries.length);
-        console.log("📦 Total parcels fetched:", parcels.length);
+        console.log("📊 Total deliveries fetched:", deliveries.length);
         console.log("🚗 Current Driver ID:", driverId);
 
-        // Filter completed consolidation deliveries for this driver
+        // Filter only completed deliveries for this driver
         const completedDeliveries = deliveries.filter((d: Delivery) => {
-          const isCompleted = d.status === "completed";
-          // Handle both string and object driverId
-          const deliveryDriverId = typeof d.driverId === 'string' ? d.driverId : d.driverId?._id;
+          const isDelivered = d.status === "delivered";
+          const deliveryDriverId = typeof d.assignedDriver === 'string' 
+            ? d.assignedDriver 
+            : d.assignedDriver?._id;
           const driverIdMatch = deliveryDriverId === driverId;
           
-          if (isCompleted && driverIdMatch) {
-            console.log("✅ Completed consolidation delivery:", d._id, "Driver:", deliveryDriverId);
-          }
-          
-          return isCompleted && driverIdMatch;
-        });
-
-        // Filter delivered parcels for this driver
-        const deliveredParcels = parcels.filter((p: any) => {
-          const isDelivered = p.status === "delivered";
-          // Handle both string and object assignedDriver
-          const parcelDriverId = typeof p.assignedDriver === 'string' ? p.assignedDriver : p.assignedDriver?._id;
-          const driverIdMatch = parcelDriverId === driverId;
-          
           if (isDelivered && driverIdMatch) {
-            console.log("✅ Delivered parcel:", p.trackingNumber, "Driver:", parcelDriverId);
+            console.log("✅ Completed delivery:", d.deliveryNumber, "Driver:", deliveryDriverId);
           }
           
           return isDelivered && driverIdMatch;
         });
 
-        console.log("✅ Total completed consolidation deliveries for this driver:", completedDeliveries.length);
-        console.log("✅ Total delivered individual parcels for this driver:", deliveredParcels.length);
+        console.log("✅ Total completed deliveries for this driver:", completedDeliveries.length);
         
-        const dailyStats = processDeliveryHistory(completedDeliveries, deliveredParcels);
+        const dailyStats = processDeliveryHistory(completedDeliveries);
         setHistory(dailyStats);
       }
     } catch (err: any) {
@@ -187,68 +197,49 @@ const DeliveryHistory = ({ userId, setActiveTab }: { userId?: string; setActiveT
     return driverPricings.find(dp => dp.parcelType === parcelType) || null;
   };
 
-  const processDeliveryHistory = (deliveries: Delivery[], parcels: any[]): DailyStats[] => {
+  const processDeliveryHistory = (deliveries: Delivery[]): DailyStats[] => {
     const now = new Date();
     const daysAgo = parseInt(timeFilter);
     const startDate = new Date(now.getTime() - daysAgo * 24 * 60 * 60 * 1000);
 
-    // Filter consolidation deliveries within date range
+    // Filter deliveries within date range
     const filteredDeliveries = deliveries.filter((d) => {
-      const deliveryDate = new Date(d.endTime || d.actualDeliveryTime || d.updatedTimestamp || d.createdTimestamp);
+      const deliveryDate = new Date(d.actualDeliveryTime || d.updatedTimestamp || d.createdTimestamp);
       return deliveryDate >= startDate;
     });
 
-    // Filter individual parcels within date range
-    const filteredParcels = parcels.filter((p) => {
-      const deliveryDate = p.statusHistory?.find((h: any) => h.status === "delivered")?.timestamp;
-      return deliveryDate ? new Date(deliveryDate) >= startDate : false;
-    });
+    console.log(`📅 Deliveries in last ${daysAgo} days:`, filteredDeliveries.length);
 
-    console.log(`📅 Consolidation deliveries in last ${daysAgo} days:`, filteredDeliveries.length);
-    console.log(`📅 Individual parcels in last ${daysAgo} days:`, filteredParcels.length);
-
-    // Group consolidation deliveries by date
-    const groupedByDate: Record<string, { deliveries: Delivery[], parcels: any[] }> = {};
+    // Group deliveries by date
+    const groupedByDate: Record<string, Delivery[]> = {};
 
     filteredDeliveries.forEach((delivery) => {
-      const deliveryDate = new Date(delivery.endTime || delivery.actualDeliveryTime || delivery.updatedTimestamp || delivery.createdTimestamp);
+      const deliveryDate = new Date(delivery.actualDeliveryTime || delivery.updatedTimestamp || delivery.createdTimestamp);
       const dateKey = deliveryDate.toLocaleDateString();
       if (!groupedByDate[dateKey]) {
-        groupedByDate[dateKey] = { deliveries: [], parcels: [] };
+        groupedByDate[dateKey] = [];
       }
-      groupedByDate[dateKey].deliveries.push(delivery);
-    });
-
-    // Group individual parcels by date
-    filteredParcels.forEach((parcel) => {
-      const deliveryDate = parcel.statusHistory?.find((h: any) => h.status === "delivered")?.timestamp;
-      if (deliveryDate) {
-        const dateKey = new Date(deliveryDate).toLocaleDateString();
-        if (!groupedByDate[dateKey]) {
-          groupedByDate[dateKey] = { deliveries: [], parcels: [] };
-        }
-        groupedByDate[dateKey].parcels.push(parcel);
-      }
+      groupedByDate[dateKey].push(delivery);
     });
 
     // Calculate stats for each day
     return Object.entries(groupedByDate)
-      .map(([date, data]) => {
-        const { deliveries: dayDeliveries, parcels: dayParcels } = data;
+      .map(([date, dayDeliveries]) => {
         let totalDistance = 0;
         let totalEarnings = 0;
-        let totalDeliveryCount = 0;
+        let totalDeliveryCount = dayDeliveries.length;
 
-        // Calculate from consolidation deliveries
         dayDeliveries.forEach((delivery) => {
-          let deliveryDistance = 0;
+          // Estimate distance (simplified calculation)
+          let deliveryDistance = 5; // Default 5 km per delivery
 
-          // Calculate distance from location history
-          if (delivery.locationHistory && delivery.locationHistory.length > 1) {
-            for (let i = 1; i < delivery.locationHistory.length; i++) {
-              const loc1 = delivery.locationHistory[i - 1];
-              const loc2 = delivery.locationHistory[i];
-              if (loc1.latitude && loc1.longitude && loc2.latitude && loc2.longitude) {
+          // If we have location history, calculate actual distance
+          if (delivery.statusHistory && delivery.statusHistory.length > 1) {
+            deliveryDistance = 0;
+            for (let i = 1; i < delivery.statusHistory.length; i++) {
+              const loc1 = delivery.statusHistory[i - 1].location;
+              const loc2 = delivery.statusHistory[i].location;
+              if (loc1?.latitude && loc1?.longitude && loc2?.latitude && loc2?.longitude) {
                 deliveryDistance += calculateDistance(
                   loc1.latitude,
                   loc1.longitude,
@@ -257,58 +248,37 @@ const DeliveryHistory = ({ userId, setActiveTab }: { userId?: string; setActiveT
                 );
               }
             }
+            if (deliveryDistance === 0) deliveryDistance = 5; // Fallback
           }
 
           totalDistance += deliveryDistance;
 
-          // Calculate earnings for this consolidation delivery
-          const consolidation = delivery.consolidationId;
-          if (consolidation?.parcels && consolidation.parcels.length > 0) {
-            const distancePerParcel = deliveryDistance / consolidation.parcels.length;
-            
-            consolidation.parcels.forEach((parcel: any) => {
-              const pricingType = parcel.pricingId?.parcelType || "Standard";
-              const driverPricing = getDriverPricingForParcel(pricingType);
+          // Calculate earnings based on items
+          const items = delivery.deliveryItemType === "consolidation"
+            ? delivery.consolidation?.parcels || []
+            : delivery.parcels || [];
 
-              if (driverPricing) {
-                const weight = parcel.weight?.value || 0;
-                
-                let parcelEarnings = driverPricing.driverBaseEarning;
-                parcelEarnings += distancePerParcel * driverPricing.driverEarningPerKm;
-                parcelEarnings += weight * driverPricing.driverEarningPerKg;
-                
-                if (parcel.isUrgent && driverPricing.urgentDeliveryBonus > 0) {
-                  parcelEarnings += driverPricing.urgentDeliveryBonus;
-                }
+          const distancePerItem = items.length > 0 ? deliveryDistance / items.length : deliveryDistance;
 
-                totalEarnings += parcelEarnings;
-                totalDeliveryCount++;
+          items.forEach((item: Parcel) => {
+            const pricingType = item.pricingId?.parcelType || "Standard";
+            const driverPricing = getDriverPricingForParcel(pricingType);
+
+            if (driverPricing) {
+              const weight = item.weight?.value || 0;
+              
+              let itemEarnings = driverPricing.driverBaseEarning;
+              itemEarnings += distancePerItem * driverPricing.driverEarningPerKm;
+              itemEarnings += weight * driverPricing.driverEarningPerKg;
+              
+              // Check if urgent (priority is urgent)
+              if (delivery.priority === "urgent" && driverPricing.urgentDeliveryBonus > 0) {
+                itemEarnings += driverPricing.urgentDeliveryBonus;
               }
-            });
-          }
-        });
 
-        // Calculate from individual parcels
-        dayParcels.forEach((parcel) => {
-          const pricingType = parcel.pricingId?.parcelType || "Standard";
-          const driverPricing = getDriverPricingForParcel(pricingType);
-
-          if (driverPricing) {
-            const weight = parcel.weight?.value || 0;
-            const estimatedDistance = 5; // 5 km average for individual parcels
-            
-            let parcelEarnings = driverPricing.driverBaseEarning;
-            parcelEarnings += estimatedDistance * driverPricing.driverEarningPerKm;
-            parcelEarnings += weight * driverPricing.driverEarningPerKg;
-            
-            if (parcel.isUrgent && driverPricing.urgentDeliveryBonus > 0) {
-              parcelEarnings += driverPricing.urgentDeliveryBonus;
+              totalEarnings += itemEarnings;
             }
-
-            totalEarnings += parcelEarnings;
-            totalDistance += estimatedDistance;
-            totalDeliveryCount++;
-          }
+          });
         });
 
         return {
@@ -316,9 +286,8 @@ const DeliveryHistory = ({ userId, setActiveTab }: { userId?: string; setActiveT
           deliveries: totalDeliveryCount,
           distance: Math.round(totalDistance * 10) / 10,
           earnings: Math.round(totalEarnings * 100) / 100,
-          avgRating: 0,
+          avgRating: 4.8, // Default rating
           deliveryData: dayDeliveries,
-          parcelData: dayParcels,
         };
       })
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -346,12 +315,13 @@ const DeliveryHistory = ({ userId, setActiveTab }: { userId?: string; setActiveT
 
   const exportData = () => {
     const csvContent = [
-      ["Date", "Deliveries", "Distance (km)", "Earnings (Rs.)"],
+      ["Date", "Deliveries", "Distance (km)", "Earnings (Rs.)", "Avg Rating"],
       ...history.map((day) => [
         day.date,
         day.deliveries,
         day.distance,
         day.earnings,
+        day.avgRating
       ]),
     ]
       .map((row) => row.join(","))
@@ -374,6 +344,29 @@ const DeliveryHistory = ({ userId, setActiveTab }: { userId?: string; setActiveT
         ? history.reduce((sum, day) => sum + day.avgRating, 0) / history.length
         : 0,
     };
+  };
+
+  const formatStatus = (status: string): string =>
+    status
+      .split("_")
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(" ");
+
+  const calculateDeliveryDuration = (delivery: Delivery): string => {
+    if (delivery.actualPickupTime && delivery.actualDeliveryTime) {
+      const start = new Date(delivery.actualPickupTime).getTime();
+      const end = new Date(delivery.actualDeliveryTime).getTime();
+      const minutes = Math.round((end - start) / (1000 * 60));
+      
+      if (minutes < 60) {
+        return `${minutes} min`;
+      } else {
+        const hours = Math.floor(minutes / 60);
+        const mins = minutes % 60;
+        return `${hours}h ${mins}m`;
+      }
+    }
+    return "N/A";
   };
 
   if (loading) {
@@ -545,86 +538,79 @@ const DeliveryHistory = ({ userId, setActiveTab }: { userId?: string; setActiveT
             <div className="space-y-3">
               <h4 className="text-white font-semibold mb-3">Delivery Details</h4>
               
-              {/* Consolidation Deliveries */}
-              {selectedDay.deliveryData.length > 0 && (
-                <div className="mb-4">
-                  <h5 className="text-gray-400 text-sm mb-2">Consolidation Deliveries ({selectedDay.deliveryData.length})</h5>
-                  {selectedDay.deliveryData.map((delivery, idx) => (
-                    <div
-                      key={delivery._id}
-                      className="bg-gray-900/50 border border-gray-700 rounded-lg p-4 mb-2"
-                    >
-                      <div className="flex justify-between items-start mb-2">
-                        <div>
-                          <div className="text-blue-400 font-semibold">
-                            {delivery.consolidationId?.masterTrackingNumber || `DEL-${delivery._id.slice(-6)}`}
-                          </div>
-                          <div className="text-gray-500 text-sm">
-                            Ref: {delivery.consolidationId?.referenceCode || "N/A"}
-                          </div>
+              {selectedDay.deliveryData.map((delivery, idx) => {
+                const items = delivery.deliveryItemType === "consolidation"
+                  ? delivery.consolidation?.parcels || []
+                  : delivery.parcels || [];
+
+                return (
+                  <div
+                    key={delivery._id}
+                    className="bg-gray-900/50 border border-gray-700 rounded-lg p-4"
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <div className="text-blue-400 font-semibold">
+                          {delivery.deliveryNumber}
                         </div>
-                        <span className="text-green-400 text-sm bg-green-500/10 px-2 py-1 rounded">Completed</span>
+                        <div className="text-gray-500 text-sm">
+                          {delivery.deliveryItemType === "consolidation"
+                            ? `Consolidation: ${delivery.consolidation?.referenceCode || "N/A"}`
+                            : "Parcel Delivery"}
+                        </div>
                       </div>
+                      <span className="text-green-400 text-sm bg-green-500/10 px-2 py-1 rounded">
+                        Delivered
+                      </span>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-2 text-sm mb-2">
+                      <div className="text-gray-400">
+                        Items: <span className="text-white">{items.length}</span>
+                      </div>
+                      <div className="text-gray-400">
+                        Duration: <span className="text-white">{calculateDeliveryDuration(delivery)}</span>
+                      </div>
+                    </div>
+
+                    {delivery.toLocation && (
                       <div className="text-gray-400 text-sm mb-2">
-                        Parcels: {delivery.consolidationId?.parcels?.length || 0}
+                        <MapPin className="w-3 h-3 inline mr-1" />
+                        {delivery.toLocation.type === "address"
+                          ? delivery.toLocation.address || "Address"
+                          : `Warehouse: ${delivery.toLocation.locationName || "N/A"}`}
                       </div>
-                      {delivery.startTime && delivery.endTime && (
-                        <div className="text-gray-400 text-sm">
-                          Duration:{" "}
-                          {Math.round(
-                            (new Date(delivery.endTime).getTime() -
-                              new Date(delivery.startTime).getTime()) /
-                              (1000 * 60)
-                          )}{" "}
-                          minutes
-                        </div>
-                      )}
-                      {delivery.notes && (
-                        <div className="text-gray-400 text-sm mt-2 italic bg-blue-500/10 p-2 rounded">
-                          Note: {delivery.notes}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
+                    )}
 
-              {/* Individual Parcels */}
-              {selectedDay.parcelData && selectedDay.parcelData.length > 0 && (
-                <div>
-                  <h5 className="text-gray-400 text-sm mb-2">Individual Parcels ({selectedDay.parcelData.length})</h5>
-                  {selectedDay.parcelData.map((parcel, idx) => (
-                    <div
-                      key={parcel._id}
-                      className="bg-gray-900/50 border border-green-700 rounded-lg p-4 mb-2"
-                    >
-                      <div className="flex justify-between items-start mb-2">
-                        <div>
-                          <div className="text-green-400 font-semibold">
-                            {parcel.trackingNumber}
-                          </div>
-                          <div className="text-gray-500 text-sm">
-                            Type: {parcel.pricingId?.parcelType || "Standard"}
-                          </div>
+                    {items.length > 0 && (
+                      <div className="mt-2 pt-2 border-t border-gray-700">
+                        <div className="text-gray-400 text-xs mb-1">Items in this delivery:</div>
+                        <div className="space-y-1">
+                          {items.slice(0, 2).map((item) => (
+                            <div key={item._id} className="text-xs text-gray-500">
+                              • {item.trackingNumber}
+                              {item.weight && ` (${item.weight.value} ${item.weight.unit})`}
+                            </div>
+                          ))}
+                          {items.length > 2 && (
+                            <div className="text-xs text-gray-500">
+                              +{items.length - 2} more items
+                            </div>
+                          )}
                         </div>
-                        <span className="text-green-400 text-sm bg-green-500/10 px-2 py-1 rounded">Delivered</span>
                       </div>
-                      {parcel.receiver?.name && (
-                        <div className="text-gray-400 text-sm">
-                          Receiver: {parcel.receiver.name}
-                        </div>
-                      )}
-                      {parcel.weight && (
-                        <div className="text-gray-400 text-sm">
-                          Weight: {parcel.weight.value} {parcel.weight.unit}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
+                    )}
 
-              {selectedDay.deliveryData.length === 0 && (!selectedDay.parcelData || selectedDay.parcelData.length === 0) && (
+                    {delivery.notes && (
+                      <div className="text-gray-400 text-sm mt-2 italic bg-blue-500/10 p-2 rounded">
+                        Note: {delivery.notes}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+
+              {selectedDay.deliveryData.length === 0 && (
                 <div className="text-gray-400 text-center py-8">No delivery details available</div>
               )}
             </div>

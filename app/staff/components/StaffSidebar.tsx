@@ -9,7 +9,7 @@ interface SidebarProps {
 const StaffSidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
   return (
     <div>
-      <nav className="w-64 fixed h-[93vh] z-[99] top-[9vh] bg-gradient-to-b from-gray-900 to-gray-950 border-r border-gray-700 p-0 overflow-y-auto">
+      <nav className="w-64 pb-[50px] fixed h-[93vh] z-[99] top-[9vh] bg-gradient-to-b from-gray-900 to-gray-950 border-r border-gray-700 p-0 overflow-y-auto">
         <div className="pt-[40px]">
           {/* Operations Section */}
           <div className="px-6 mb-3">

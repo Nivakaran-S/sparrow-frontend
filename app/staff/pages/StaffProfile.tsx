@@ -136,7 +136,7 @@ const StaffProfile = ({ setActiveTab }: TrackShipmentsProps) => {
               </h3>
               <p className="text-gray-400">{profileData.email}</p>
               <span className="inline-block mt-2 px-3 py-1 bg-blue-900/30 text-blue-400 rounded-full text-sm">
-                Customer Account
+                Staff Account
               </span>
             </div>
           </div>
