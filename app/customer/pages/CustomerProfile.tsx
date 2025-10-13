@@ -263,12 +263,7 @@ const CustomerProfile = ({ setActiveTab }: TrackShipmentsProps) => {
           </button>
         </div>
 
-        <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl border border-gray-700 p-6">
-          <h4 className="text-lg font-semibold text-white mb-4">Notifications</h4>
-          <button className="w-full px-4 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors">
-            Notification Settings
-          </button>
-        </div>
+        
       </div>
     </div>
     </div>

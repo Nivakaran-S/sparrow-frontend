@@ -455,10 +455,10 @@ export default function SwiftScreen({ setActiveTab }: TrackShipmentsProps) {
         </button>
       </div>
 
-      <div className="flex gap-6">
+      <div className="flex  gap-3">
         {/* Sidebar */}
         {sidebarOpen && (
-          <div className="w-[280px] bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl border border-gray-700 p-4 flex flex-col h-[calc(100vh-250px)]">
+          <div className="w-[280px] bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl border border-gray-700 p-4 flex flex-col h-[calc(100vh-220px)]">
             <button
               onClick={createNewSession}
               className="w-full cursor-pointer mb-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-all font-medium"
@@ -504,7 +504,7 @@ export default function SwiftScreen({ setActiveTab }: TrackShipmentsProps) {
         )}
 
         {/* Chat Area */}
-        <div className="flex-1 bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl border border-gray-700 flex flex-col h-[calc(100vh-250px)]">
+        <div className="flex-1  bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl border border-gray-700 flex flex-col h-[calc(100vh-220px)]">
           {/* Messages */}
           <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-4">
             {activeSession && activeSession.messages.length > 0 ? (

@@ -89,12 +89,7 @@ const HelpSupport = ({ setActiveTab }: TrackShipmentsProps) => {
     return matchesCategory && matchesSearch;
   });
 
-  const handleFormSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    alert("Support ticket submitted! We'll get back to you within 24 hours.");
-    setFormData({ subject: "", category: "general", message: "" });
-    setShowContactForm(false);
-  };
+  
 
   return (
     <div className="text-white">
@@ -109,7 +104,7 @@ const HelpSupport = ({ setActiveTab }: TrackShipmentsProps) => {
           <div className="text-4xl mb-3">💬</div>
           <h3 className="text-lg font-semibold text-white mb-2">Live Chat</h3>
           <p className="text-gray-400 text-sm mb-4">Chat with our support team</p>
-          <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors">
+          <button  onClick={() => setActiveTab && setActiveTab('swift')}  className="px-4 cursor-pointer py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors">
             Start Chat
           </button>
         </div>
@@ -118,21 +113,14 @@ const HelpSupport = ({ setActiveTab }: TrackShipmentsProps) => {
           <div className="text-4xl mb-3">📧</div>
           <h3 className="text-lg font-semibold text-white mb-2">Email Support</h3>
           <p className="text-gray-400 text-sm mb-4">support@sparrow.com</p>
-          <button 
-            onClick={() => setShowContactForm(true)}
-            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors"
-          >
-            Send Email
-          </button>
+        
         </div>
 
         <div className="bg-gradient-to-br from-purple-900/30 to-gray-900 p-6 rounded-xl border border-purple-700 hover:border-purple-500 transition-all cursor-pointer">
           <div className="text-4xl mb-3">📞</div>
           <h3 className="text-lg font-semibold text-white mb-2">Phone Support</h3>
           <p className="text-gray-400 text-sm mb-4">+94 (011) 252-4567</p>
-          <button className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition-colors">
-            Call Now
-          </button>
+         
         </div>
       </div>
 
@@ -217,63 +205,7 @@ const HelpSupport = ({ setActiveTab }: TrackShipmentsProps) => {
               </button>
             </div>
 
-            <form onSubmit={handleFormSubmit} className="p-6 space-y-6">
-              <div>
-                <label className="block text-gray-400 text-sm font-medium mb-2">Subject</label>
-                <input
-                  type="text"
-                  value={formData.subject}
-                  onChange={(e) => setFormData({...formData, subject: e.target.value})}
-                  required
-                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500"
-                  placeholder="Brief description of your issue"
-                />
-              </div>
-
-              <div>
-                <label className="block text-gray-400 text-sm font-medium mb-2">Category</label>
-                <select
-                  value={formData.category}
-                  onChange={(e) => setFormData({...formData, category: e.target.value})}
-                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500"
-                >
-                  <option value="general">General Inquiry</option>
-                  <option value="shipping">Shipping Issue</option>
-                  <option value="tracking">Tracking Problem</option>
-                  <option value="payment">Payment Issue</option>
-                  <option value="account">Account Support</option>
-                  <option value="technical">Technical Issue</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-gray-400 text-sm font-medium mb-2">Message</label>
-                <textarea
-                  value={formData.message}
-                  onChange={(e) => setFormData({...formData, message: e.target.value})}
-                  required
-                  rows={6}
-                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500"
-                  placeholder="Describe your issue in detail..."
-                />
-              </div>
-
-              <div className="flex gap-4">
-                <button
-                  type="button"
-                  onClick={() => setShowContactForm(false)}
-                  className="flex-1 px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
-                >
-                  Submit Ticket
-                </button>
-              </div>
-            </form>
+            
           </div>
         </div>
       )}
