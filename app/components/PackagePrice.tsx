@@ -150,7 +150,7 @@ export default function PackagePrice() {
   }
 
   return (
-    <section className="bg-gradient-to-b py-[10vh] flex flex-col items-center justify-center from-[#111111] to-[#000000]" id="pricing">
+    <section className="bg-gradient-to-b from-[#111111] to-[#000000] py-[10vh] flex flex-col items-center justify-center " id="pricing">
       <h2 className="text-[45px] font-bold">Simple, Transparent Pricing</h2>
       <p className="text-[20px] pb-[60px]">No hidden fees. Pay only for what you ship.</p>
       

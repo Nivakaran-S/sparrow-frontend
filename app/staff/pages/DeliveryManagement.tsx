@@ -19,11 +19,14 @@ import {
   Layers,
   Eye,
   RefreshCw,
-  Navigation
+  Navigation,
+  Zap
 } from "lucide-react";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api-gateway-nine-orpin.vercel.app";
-const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "YOUR_GOOGLE_MAPS_API_KEY_HERE";
+const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "AIzaSyDclUQazAMvwp52Kr91LM-yOPoY9-z7q18";
+const ETA_PREDICTION_API = process.env.NEXT_PUBLIC_ETA_PREDICTION_API || "http://localhost:8000";
+const WEATHER_API_KEY = process.env.NEXT_PUBLIC_WEATHER_API_KEY || "eca50f9fca8dff48998f311ce5c18737";
 
 interface Delivery {
   _id: string;
@@ -130,8 +133,10 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [isGeocodingFrom, setIsGeocodingFrom] = useState(false);
   const [isGeocodingTo, setIsGeocodingTo] = useState(false);
+  const [isPredictingETA, setIsPredictingETA] = useState(false);
   const [selectedDelivery, setSelectedDelivery] = useState<Delivery | null>(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [predictedETA, setPredictedETA] = useState<number | null>(null);
 
   const [formData, setFormData] = useState({
     deliveryItemType: "parcel" as "parcel" | "consolidation",
@@ -153,7 +158,9 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
     priority: "normal",
     estimatedDeliveryTime: "",
     deliveryInstructions: "",
-    notes: ""
+    notes: "",
+    vehicleType: "Scooter",
+    courierExperience: "2"
   });
 
   // Geocoding function to fetch coordinates from address
@@ -191,6 +198,227 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
       console.error("Geocoding error:", error);
       alert("Failed to fetch coordinates. Please check your internet connection.");
       return null;
+    }
+  };
+
+  // Calculate distance between two coordinates using Haversine formula
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    const R = 6371; // Radius of Earth in kilometers
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+  };
+
+  // Get traffic data from Google Maps Distance Matrix API
+  const getTrafficData = async (fromLat: number, fromLng: number, toLat: number, toLng: number): Promise<string> => {
+    try {
+      const response = await fetch(
+        `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${fromLat},${fromLng}&destinations=${toLat},${toLng}&departure_time=now&traffic_model=best_guess&key=${GOOGLE_MAPS_API_KEY}`
+      );
+      
+      const data = await response.json();
+      
+      if (data.status === "OK" && data.rows && data.rows[0].elements && data.rows[0].elements[0].status === "OK") {
+        const duration = data.rows[0].elements[0].duration.value; // in seconds
+        const durationInTraffic = data.rows[0].elements[0].duration_in_traffic?.value || duration;
+        
+        // Calculate traffic ratio
+        const trafficRatio = durationInTraffic / duration;
+        
+        if (trafficRatio < 1.2) return "Low";
+        else if (trafficRatio < 1.5) return "Medium";
+        else return "High";
+      }
+      
+      // Default to Medium if API fails
+      return "Medium";
+    } catch (error) {
+      console.error("Traffic data error:", error);
+      // Default to Medium traffic
+      return "Medium";
+    }
+  };
+
+  // Get weather data from OpenWeatherMap API
+  const getWeatherData = async (lat: number, lng: number): Promise<string> => {
+    try {
+      const response = await fetch(
+        `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lng}&appid=${WEATHER_API_KEY}`
+      );
+      
+      const data = await response.json();
+      
+      if (data.weather && data.weather.length > 0) {
+        const mainWeather = data.weather[0].main.toLowerCase();
+        
+        // Map weather conditions to our categories
+        if (mainWeather.includes('rain') || mainWeather.includes('drizzle')) return "Rainy";
+        if (mainWeather.includes('snow')) return "Snowy";
+        if (mainWeather.includes('fog') || mainWeather.includes('mist') || mainWeather.includes('haze')) return "Foggy";
+        if (data.wind?.speed > 10) return "Windy"; // Wind speed > 10 m/s
+        return "Clear";
+      }
+      
+      // Default to Clear if API fails
+      return "Clear";
+    } catch (error) {
+      console.error("Weather data error:", error);
+      // Default to Clear weather
+      return "Clear";
+    }
+  };
+
+  // Get time of day
+  const getTimeOfDay = (): string => {
+    const hour = new Date().getHours();
+    if (hour >= 5 && hour < 12) return "Morning";
+    if (hour >= 12 && hour < 17) return "Afternoon";
+    if (hour >= 17 && hour < 21) return "Evening";
+    return "Night";
+  };
+
+  // Predict ETA using the ML model
+  const predictETA = async () => {
+    // Validate required fields
+    if (!formData.assignedDriver) {
+      alert("Please select a driver first");
+      return;
+    }
+
+    let fromLat: number, fromLng: number, toLat: number, toLng: number;
+
+    // Get FROM coordinates
+    if (formData.fromLocationType === 'warehouse') {
+      if (!formData.fromWarehouseId) {
+        alert("Please select a 'From' warehouse");
+        return;
+      }
+      const warehouse = warehouses.find(w => w._id === formData.fromWarehouseId);
+      if (!warehouse || !warehouse.address?.latitude || !warehouse.address?.longitude) {
+        alert("Selected 'From' warehouse does not have coordinates. Please use a custom address instead.");
+        return;
+      }
+      fromLat = parseFloat(warehouse.address.latitude);
+      fromLng = parseFloat(warehouse.address.longitude);
+    } else {
+      fromLat = parseFloat(formData.fromLatitude);
+      fromLng = parseFloat(formData.fromLongitude);
+      if (isNaN(fromLat) || isNaN(fromLng)) {
+        alert("Please provide valid 'From' location coordinates");
+        return;
+      }
+    }
+
+    // Get TO coordinates
+    if (formData.toLocationType === 'warehouse') {
+      if (!formData.toWarehouseId) {
+        alert("Please select a 'To' warehouse");
+        return;
+      }
+      const warehouse = warehouses.find(w => w._id === formData.toWarehouseId);
+      if (!warehouse || !warehouse.address?.latitude || !warehouse.address?.longitude) {
+        alert("Selected 'To' warehouse does not have coordinates. Please use a custom address instead.");
+        return;
+      }
+      toLat = parseFloat(warehouse.address.latitude);
+      toLng = parseFloat(warehouse.address.longitude);
+    } else {
+      toLat = parseFloat(formData.toLatitude);
+      toLng = parseFloat(formData.toLongitude);
+      if (isNaN(toLat) || isNaN(toLng)) {
+        alert("Please provide valid 'To' location coordinates");
+        return;
+      }
+    }
+
+    setIsPredictingETA(true);
+
+    try {
+      // Calculate distance
+      const distance = calculateDistance(fromLat, fromLng, toLat, toLng);
+      
+      // Get traffic level
+      const trafficLevel = await getTrafficData(fromLat, fromLng, toLat, toLng);
+      
+      // Get weather (using midpoint or destination)
+      const midLat = (fromLat + toLat) / 2;
+      const midLng = (fromLng + toLng) / 2;
+      const weather = await getWeatherData(midLat, midLng);
+      
+      // Get time of day
+      const timeOfDay = getTimeOfDay();
+      
+      // Get courier experience from selected driver
+      const selectedDriver = drivers.find(d => d._id === formData.assignedDriver);
+      const courierExperience = parseFloat(formData.courierExperience) || 2;
+
+      // Prepare features for the model
+      const features = {
+        Distance_km: distance,
+        Courier_Experience_yrs: courierExperience,
+        Vehicle_Type_Pickup_Truck: formData.vehicleType === "Pickup Truck" ? 1 : 0,
+        Vehicle_Type_Scooter: formData.vehicleType === "Scooter" ? 1 : 0,
+        Weather_Foggy: weather === "Foggy" ? 1 : 0,
+        Weather_Rainy: weather === "Rainy" ? 1 : 0,
+        Weather_Snowy: weather === "Snowy" ? 1 : 0,
+        Weather_Windy: weather === "Windy" ? 1 : 0,
+        Time_of_Day_Evening: timeOfDay === "Evening" ? 1 : 0,
+        Time_of_Day_Morning: timeOfDay === "Morning" ? 1 : 0,
+        Time_of_Day_Night: timeOfDay === "Night" ? 1 : 0,
+        Traffic_Level_Low: trafficLevel === "Low" ? 1 : 0,
+        Traffic_Level_Medium: trafficLevel === "Medium" ? 1 : 0
+      };
+
+      console.log("Prediction features:", features);
+      console.log("Distance:", distance, "km");
+      console.log("Traffic:", trafficLevel);
+      console.log("Weather:", weather);
+      console.log("Time of Day:", timeOfDay);
+
+      // Call the ETA prediction API
+      const response = await fetch(`${ETA_PREDICTION_API}/predict`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(features)
+      });
+
+      if (!response.ok) {
+        throw new Error(`Prediction API returned status ${response.status}`);
+      }
+
+      const result = await response.json();
+      
+      if (result.predicted_delivery_time) {
+        const predictedMinutes = result.predicted_delivery_time;
+        setPredictedETA(predictedMinutes);
+        
+        // Calculate estimated delivery time
+        const now = new Date();
+        const estimatedTime = new Date(now.getTime() + predictedMinutes * 60000);
+        const formattedTime = estimatedTime.toISOString().slice(0, 16);
+        
+        setFormData(prev => ({
+          ...prev,
+          estimatedDeliveryTime: formattedTime
+        }));
+
+        alert(`Predicted ETA: ${Math.round(predictedMinutes)} minutes\n\nEstimated delivery: ${estimatedTime.toLocaleString()}\n\nDetails:\n- Distance: ${distance.toFixed(2)} km\n- Traffic: ${trafficLevel}\n- Weather: ${weather}\n- Time: ${timeOfDay}`);
+      } else {
+        throw new Error("No prediction returned from API");
+      }
+
+    } catch (error) {
+      console.error("ETA prediction error:", error);
+      alert("Failed to predict ETA. Please check the console for details and ensure the prediction API is running.");
+    } finally {
+      setIsPredictingETA(false);
     }
   };
 
@@ -583,8 +811,11 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
       priority: "normal",
       estimatedDeliveryTime: "",
       deliveryInstructions: "",
-      notes: ""
+      notes: "",
+      vehicleType: "Scooter",
+      courierExperience: "2"
     });
+    setPredictedETA(null);
   };
 
   const getStatusColor = (status: string) => {
@@ -1048,6 +1279,37 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
                 </select>
               </div>
 
+              {/* Vehicle & Experience */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-gray-400 text-sm mb-2">Vehicle Type *</label>
+                  <select
+                    required
+                    value={formData.vehicleType}
+                    onChange={(e) => setFormData({ ...formData, vehicleType: e.target.value })}
+                    className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="Scooter">Scooter</option>
+                    <option value="Pickup Truck">Pickup Truck</option>
+                    <option value="Motorcycle">Motorcycle</option>
+                    <option value="Van">Van</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-gray-400 text-sm mb-2">Courier Experience (years) *</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    required
+                    value={formData.courierExperience}
+                    onChange={(e) => setFormData({ ...formData, courierExperience: e.target.value })}
+                    placeholder="2.0"
+                    className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
               {/* From Location */}
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-white flex items-center gap-2">
@@ -1295,6 +1557,49 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
                       />
                     </div>
                   </>
+                )}
+              </div>
+
+              {/* ETA Prediction Button */}
+              <div className="bg-gradient-to-r from-purple-500/10 to-blue-500/10 border border-purple-500/30 rounded-lg p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                      <Zap className="w-5 h-5 text-purple-400" />
+                      AI-Powered ETA Prediction
+                    </h3>
+                    <p className="text-gray-400 text-sm mt-1">
+                      Get intelligent delivery time estimates based on distance, traffic, weather, and more
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={predictETA}
+                    disabled={isPredictingETA}
+                    className="px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-all flex items-center gap-2 shadow-lg"
+                  >
+                    {isPredictingETA ? (
+                      <>
+                        <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white"></div>
+                        Predicting...
+                      </>
+                    ) : (
+                      <>
+                        <Zap className="w-5 h-5" />
+                        Predict ETA
+                      </>
+                    )}
+                  </button>
+                </div>
+                {predictedETA !== null && (
+                  <div className="bg-gray-900 rounded-lg p-4 mt-4">
+                    <p className="text-green-400 font-semibold text-lg">
+                      Predicted Delivery Time: {Math.round(predictedETA)} minutes
+                    </p>
+                    <p className="text-gray-400 text-sm mt-1">
+                      The estimated delivery time has been automatically set below
+                    </p>
+                  </div>
                 )}
               </div>
 

@@ -10,7 +10,8 @@ export default function Navigation() {
     const navItems = [
         { name: "Home", href: "/" },
         { name: "Track Package", href: "/track" },
-        { name: "Pricing", href: "/pricing" }
+        { name: "Pricing", href: "/pricing" },
+        { name: "ETA Service", href: "/eta-service" }
     ]
 
     return (
