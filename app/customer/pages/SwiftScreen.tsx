@@ -25,28 +25,26 @@ interface TrackShipmentsProps {
   setActiveTab?: (tab: string) => void;
 }
 
-
 export default function SwiftScreen({ setActiveTab }: TrackShipmentsProps) {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [message, setMessage] = useState('');
   const [typing, setTyping] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
-  // Refs to prevent stale closures
   const sessionsRef = useRef<Session[]>([]);
   const activeSessionIdRef = useRef<string | null>(null);
 
-  // Keep refs in sync
   useEffect(() => {
     sessionsRef.current = sessions;
   }, [sessions]);
+
   useEffect(() => {
     activeSessionIdRef.current = activeSessionId;
   }, [activeSessionId]);
 
-  // Load sessions from localStorage
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -62,15 +60,14 @@ export default function SwiftScreen({ setActiveTab }: TrackShipmentsProps) {
       console.error('Failed to parse sessions from localStorage', err);
     }
 
-    // Default session
     const defaultSession: Session = {
       id: uuidv4(),
-      title: 'Default Session',
+      title: 'New Chat',
       thread_id: null,
       messages: [
         {
           type: 'receiver',
-          content: "👋 Hi there! I'm Swift, your virtual assistant. How can I help you today?",
+          content: "Hi there! I'm Swift, your virtual assistant. How can I help you today?",
           timestamp: Date.now(),
         },
       ],
@@ -79,7 +76,6 @@ export default function SwiftScreen({ setActiveTab }: TrackShipmentsProps) {
     setActiveSessionId(defaultSession.id);
   }, []);
 
-  // Save sessions
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
@@ -88,7 +84,6 @@ export default function SwiftScreen({ setActiveTab }: TrackShipmentsProps) {
     }
   }, [sessions]);
 
-  // Auto scroll
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -97,19 +92,16 @@ export default function SwiftScreen({ setActiveTab }: TrackShipmentsProps) {
 
   const activeSession = sessions.find((s) => s.id === activeSessionId) ?? null;
 
-  // API call helper
   const sendMessageAPI = async (txt: string, thread_id: string | null) => {
     try {
       const payload: any = { message: txt };
       if (thread_id) payload.thread_id = thread_id;
 
-      console.log('Sending to API:', payload);
       const resp = await axios.post(API_URL, payload, {
         headers: { 'Content-Type': 'application/json' },
         timeout: 100000,
       });
 
-      console.log('API response raw:', resp.data);
       const data = resp.data;
 
       if (data && data.success) {
@@ -132,12 +124,9 @@ export default function SwiftScreen({ setActiveTab }: TrackShipmentsProps) {
     }
   };
 
-  // Send message
   const handleSendMessage = async () => {
     const sid = activeSessionIdRef.current;
-    if (!sid) return;
-    if (!message.trim()) return;
-    if (isSending) return;
+    if (!sid || !message.trim() || isSending) return;
 
     const currentSession = sessionsRef.current.find((s) => s.id === sid);
     const threadId = currentSession?.thread_id ?? null;
@@ -145,7 +134,6 @@ export default function SwiftScreen({ setActiveTab }: TrackShipmentsProps) {
     const text = message.trim();
     const senderMsg: Message = { type: 'sender', content: text, timestamp: Date.now() };
 
-    // Add sender message
     setSessions((prev) =>
       prev.map((s) => (s.id === sid ? { ...s, messages: [...s.messages, senderMsg] } : s))
     );
@@ -169,10 +157,7 @@ export default function SwiftScreen({ setActiveTab }: TrackShipmentsProps) {
       setSessions((prev) =>
         prev.map((s) => {
           if (s.id !== sid) return s;
-
-          // ✅ Only set thread_id if none existed before
           const updatedThreadId = s.thread_id ?? result.thread_id ?? null;
-
           return {
             ...s,
             messages: [...s.messages, receiverMsg],
@@ -194,7 +179,6 @@ export default function SwiftScreen({ setActiveTab }: TrackShipmentsProps) {
     }
   };
 
-  // Create session
   const createNewSession = () => {
     const newSession: Session = {
       id: uuidv4(),
@@ -203,16 +187,16 @@ export default function SwiftScreen({ setActiveTab }: TrackShipmentsProps) {
       messages: [
         {
           type: 'receiver',
-          content: '🧠 New chat started! How can I help you?',
+          content: 'New chat started! How can I help you?',
           timestamp: Date.now(),
         },
       ],
     };
     setSessions((prev) => [newSession, ...prev]);
     setActiveSessionId(newSession.id);
+    setSidebarOpen(false);
   };
 
-  // Delete session
   const deleteSession = (id: string) => {
     if (sessionsRef.current.length <= 1) {
       alert('You must keep at least one session.');
@@ -229,7 +213,6 @@ export default function SwiftScreen({ setActiveTab }: TrackShipmentsProps) {
     });
   };
 
-  // Enter sends
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -237,7 +220,6 @@ export default function SwiftScreen({ setActiveTab }: TrackShipmentsProps) {
     }
   };
 
-  // Parse **bold**
   const parseMessageToJSX = (text: string) => {
     const parts = text.split(/(\*\*.*?\*\*)/g);
     return parts.map((part, idx) =>
@@ -250,116 +232,142 @@ export default function SwiftScreen({ setActiveTab }: TrackShipmentsProps) {
   };
 
   return (
-    <div className="flex h-[81vh] text-white overflow-hidden">
-      {/* Sidebar */}
-      <div className="w-[300px] bg-[#101010] border-r border-gray-700 p-4 flex flex-col">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-semibold">Sessions</h2>
-          <button
-            onClick={createNewSession}
-            className="text-sm bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded"
-          >
-            + New
-          </button>
+    <div className="text-white">
+      {/* Header */}
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h2 className="text-3xl font-bold mb-2">Swift Assistant</h2>
+          <p className="text-gray-400">Your AI-powered shipping assistant</p>
         </div>
-
-        <div className="flex-1 overflow-y-auto space-y-2">
-          {sessions.map((s) => (
-            <div
-              key={s.id}
-              onClick={() => setActiveSessionId(s.id)}
-              className={`p-2 rounded cursor-pointer flex justify-between items-center ${
-                activeSessionId === s.id ? 'bg-gray-600' : 'hover:bg-gray-700'
-              }`}
-            >
-              <div className="truncate">{s.title}</div>
-              <div className="flex items-center gap-2">
-                {s.thread_id && (
-                  <span className="text-xs px-2 py-1 bg-gray-800 rounded text-gray-300">
-                    tid
-                  </span>
-                )}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    deleteSession(s.id);
-                  }}
-                  className="text-red-400 hover:text-red-500 ml-2"
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
+        <button
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          className="px-4 py-2 cursor-pointer bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg border border-gray-700 hover:border-blue-500 transition-all"
+        >
+          {sidebarOpen ? '✕ Close' : 'Sessions'}
+        </button>
       </div>
 
-      {/* Chat Area */}
-      <div className="flex-1 flex flex-col">
-        <div className="bg-[#111] border-b border-gray-700 p-4 flex justify-between items-center">
-          <h2 className="text-lg font-semibold">{activeSession?.title ?? 'Swift Chat'}</h2>
-          <div className="text-sm text-gray-400">
-            {activeSession?.thread_id ? `thread: ${activeSession.thread_id}` : ''}
-          </div>
-        </div>
+      <div className="flex gap-6">
+        {/* Sidebar */}
+        {sidebarOpen && (
+          <div className="w-[280px] bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl border border-gray-700 p-4 flex flex-col h-[calc(100vh-250px)]">
+            <button
+              onClick={createNewSession}
+              className="w-full cursor-pointer mb-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-all font-medium"
+            >
+              + New Chat
+            </button>
 
-        <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 bg-[#101010] custom-scrollbar">
-          {activeSession && activeSession.messages.length > 0 ? (
-            activeSession.messages
-              .slice()
-              .sort((a, b) => a.timestamp - b.timestamp)
-              .map((msg, i) => (
+            <div className="flex-1 overflow-y-auto space-y-2">
+              {sessions.map((s) => (
                 <div
-                  key={i}
-                  className={`flex ${
-                    msg.type === 'sender' ? 'justify-end' : 'justify-start'
-                  } mb-3`}
+                  key={s.id}
+                  onClick={() => {
+                    setActiveSessionId(s.id);
+                    setSidebarOpen(false);
+                  }}
+                  className={`p-3 rounded-lg cursor-pointer transition-all ${
+                    activeSessionId === s.id
+                      ? 'bg-blue-600/20 border border-blue-500'
+                      : 'bg-gray-800/50 border border-gray-700 hover:border-gray-600'
+                  }`}
                 >
+                  <div className="flex justify-between items-center">
+                    <span className="truncate text-sm">{s.title}</span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteSession(s.id);
+                      }}
+                      className="text-red-400 hover:text-red-300 ml-2"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  {s.thread_id && (
+                    <span className="text-xs text-gray-500 mt-1 block">
+                      Thread active
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Chat Area */}
+        <div className="flex-1 bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl border border-gray-700 flex flex-col h-[calc(100vh-250px)]">
+          {/* Messages */}
+          <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-4">
+            {activeSession && activeSession.messages.length > 0 ? (
+              activeSession.messages
+                .slice()
+                .sort((a, b) => a.timestamp - b.timestamp)
+                .map((msg, i) => (
                   <div
-                    className={`max-w-[75%] rounded-lg px-3 py-2 text-sm ${
-                      msg.type === 'sender'
-                        ? 'bg-gray-500 text-black'
-                        : 'bg-white text-black'
+                    key={i}
+                    className={`flex ${
+                      msg.type === 'sender' ? 'justify-end' : 'justify-start'
                     }`}
                   >
-                    {parseMessageToJSX(msg.content)}
+                    <div
+                      className={`max-w-[80%] rounded-lg px-4 py-3 ${
+                        msg.type === 'sender'
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-700/50 border border-gray-600 text-gray-100'
+                      }`}
+                    >
+                      {parseMessageToJSX(msg.content)}
+                    </div>
+                  </div>
+                ))
+            ) : (
+              <div className="flex h-full items-center justify-center text-gray-400">
+                <div className="text-center">
+                  
+                  <p className="text-lg">Start a conversation with Swift</p>
+                  <p className="text-sm mt-2">Ask anything about your shipments</p>
+                </div>
+              </div>
+            )}
+
+            {typing && (
+              <div className="flex justify-start">
+                <div className="bg-gray-700/50 border border-gray-600 px-4 py-3 rounded-lg">
+                  <div className="flex gap-1">
+                    <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></span>
+                    <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></span>
+                    <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></span>
                   </div>
                 </div>
-              ))
-          ) : (
-            <div className="flex h-full items-center justify-center text-gray-400 text-sm">
-              Start a conversation...
-            </div>
-          )}
-
-          {typing && (
-            <div className="flex justify-start mb-2">
-              <div className="bg-white text-black px-3 py-2 rounded-lg text-sm">
-                Typing...
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
 
-        <div className="p-4 bg-[#000] border-t border-gray-700 relative">
-          <textarea
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Ask Swift..."
-            className="w-full bg-[#111] text-white p-3 rounded-lg resize-none focus:outline-none h-[80px]"
-            disabled={isSending}
-          />
-          <div
-            onClick={handleSendMessage}
-            className={`absolute right-6 bottom-6 cursor-pointer rounded-full p-3 ${
-              isSending
-                ? 'opacity-60 pointer-events-none'
-                : 'bg-[#373435] hover:bg-[#555]'
-            }`}
-            title={isSending ? 'Sending...' : 'Send'}
-          >
-            <Image alt="send" src={Send} height={25} />
+          {/* Input Area */}
+          <div className="p-4 border-t border-gray-700 bg-gray-800/50">
+            <div className="relative flex items-center gap-2">
+              <textarea
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Type your message..."
+                className="flex-1 bg-gray-900 text-white p-3 pr-12 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 border border-gray-700"
+                rows={1}
+                disabled={isSending}
+              />
+              <button
+                onClick={handleSendMessage}
+                disabled={isSending || !message.trim()}
+                className={`absolute right-2 p-2 rounded-lg transition-all ${
+                  isSending || !message.trim()
+                    ? 'opacity-40 cursor-not-allowed'
+                    : 'hover:bg-blue-600 cursor-pointer'
+                }`}
+              >
+                <Image alt="send" src={Send} height={20} width={20} />
+              </button>
+            </div>
           </div>
         </div>
       </div>
