@@ -27,7 +27,8 @@ const Swift = () => {
 const sendMessage = async (message: string) => {
   try {
     const response = await axios.post(
-      "https://nivakaran-sparrowagenticai.hf.space/chat",
+      //"http://localhost:5000/chat",
+       "https://nivakaran-sparrowagenticai.hf.space/chat",
       {
         message: message, // ✅ backend expects this key
       },

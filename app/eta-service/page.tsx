@@ -1,6 +1,7 @@
 import Footer from "../components/Footer";
 import Navigation from "../components/Navigation";
 import ETACalculator from "../components/ETACalculator";
+import Swift from "../components/Swift";
 
 export default function ETA() {
     return(
@@ -26,6 +27,7 @@ export default function ETA() {
             </div>
             
             <ETACalculator/>
+            <Swift/>
             <Footer/>
         </div>
     )
