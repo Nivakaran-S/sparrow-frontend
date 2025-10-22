@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Package, MapPin, Phone, Navigation, CheckCircle, Clock, Truck, AlertCircle } from "lucide-react";
+import { Package, MapPin, Phone, Navigation, CheckCircle, Clock, Truck, AlertCircle, Warehouse } from "lucide-react";
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || "https://api-gateway-nine-orpin.vercel.app";
 
@@ -16,6 +16,11 @@ interface Parcel {
   _id: string;
   trackingNumber: string;
   receiver?: {
+    name: string;
+    phoneNumber: string;
+    address: string;
+  };
+  sender?: {
     name: string;
     phoneNumber: string;
     address: string;
@@ -45,7 +50,11 @@ interface Delivery {
   deliveryItemType: "parcel" | "consolidation";
   parcels?: Parcel[];
   consolidation?: Consolidation;
-  assignedDriver: any;
+  assignedDriver: {
+    _id: string;
+    userName: string;
+    entityId: string;
+  };
   fromLocation: Location;
   toLocation: Location;
   deliveryType: string;
@@ -105,8 +114,9 @@ const CurrentDeliveries = ({ userId, setActiveTab }: { userId?: string; setActiv
 
     try {
       setLoading(true);
+      // Updated API endpoint to match the backend
       const response = await fetch(
-        `${API_BASE_URL}/api/deliveries/api/deliveries/driver/${driverId}`,
+        `${API_BASE_URL}/api/parcels/api/deliveries/driver/${driverId}`,
         { credentials: "include" }
       );
 
@@ -146,11 +156,23 @@ const CurrentDeliveries = ({ userId, setActiveTab }: { userId?: string; setActiv
   const updateDeliveryStatus = async (deliveryId: string, status: string, note?: string) => {
     try {
       setUpdatingStatus(deliveryId);
-      const position = await getCurrentPosition();
-      const { latitude, longitude } = position.coords;
+      
+      let locationData = {};
+      
+      try {
+        const position = await getCurrentPosition();
+        const { latitude, longitude } = position.coords;
+        locationData = {
+          latitude,
+          longitude,
+          address: "Current Location"
+        };
+      } catch (geoError) {
+        console.warn("Could not get location, proceeding without it:", geoError);
+      }
 
       const response = await fetch(
-        `${API_BASE_URL}/api/deliveries/api/deliveries/${deliveryId}/status`,
+        `${API_BASE_URL}/api/parcels/api/deliveries/${deliveryId}/status`,
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -158,16 +180,15 @@ const CurrentDeliveries = ({ userId, setActiveTab }: { userId?: string; setActiv
           body: JSON.stringify({
             status,
             note: note || `Status updated to ${status}`,
-            location: {
-              latitude,
-              longitude,
-              address: "Current Location"
-            }
+            location: locationData
           }),
         }
       );
 
-      if (!response.ok) throw new Error(`Failed to update status to ${status}`);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `Failed to update status to ${status}`);
+      }
 
       const result = await response.json();
 
@@ -217,30 +238,47 @@ const CurrentDeliveries = ({ userId, setActiveTab }: { userId?: string; setActiv
     );
   };
 
-  const openNavigation = (delivery: Delivery) => {
-    let address = null;
-
-    // Get destination address based on delivery type
-    if (delivery.toLocation.type === "address") {
-      address = delivery.toLocation.address;
-    } else if (delivery.toLocation.warehouseId?.address) {
-      // If it's a warehouse, try to get the address from the populated warehouse object
+  const getDestinationAddress = (delivery: Delivery): string | null => {
+    // Try to get address from toLocation
+    if (delivery.toLocation.type === "address" && delivery.toLocation.address) {
+      return delivery.toLocation.address;
+    }
+    
+    // If it's a warehouse, try to get the address from the populated warehouse object
+    if (delivery.toLocation.type === "warehouse" && delivery.toLocation.warehouseId) {
       const warehouse = delivery.toLocation.warehouseId;
-      if (typeof warehouse === 'object' && warehouse.address) {
-        address = typeof warehouse.address === 'string' 
-          ? warehouse.address 
-          : warehouse.address.street || warehouse.address.city;
+      if (typeof warehouse === 'object') {
+        if (warehouse.address) {
+          if (typeof warehouse.address === 'string') {
+            return warehouse.address;
+          } else if (typeof warehouse.address === 'object') {
+            // Construct address from address object
+            const parts = [];
+            if (warehouse.address.locationNumber) parts.push(warehouse.address.locationNumber);
+            if (warehouse.address.street) parts.push(warehouse.address.street);
+            if (warehouse.address.city) parts.push(warehouse.address.city);
+            if (warehouse.address.state) parts.push(warehouse.address.state);
+            if (warehouse.address.postalCode) parts.push(warehouse.address.postalCode);
+            if (parts.length > 0) return parts.join(', ');
+          }
+        }
+        // Try using warehouse name as fallback
+        if (warehouse.name) return warehouse.name;
       }
     }
 
     // Fallback: try to get address from parcels or consolidation
-    if (!address) {
-      if (delivery.deliveryItemType === "consolidation" && delivery.consolidation?.parcels?.[0]?.receiver?.address) {
-        address = delivery.consolidation.parcels[0].receiver.address;
-      } else if (delivery.deliveryItemType === "parcel" && delivery.parcels?.[0]?.receiver?.address) {
-        address = delivery.parcels[0].receiver.address;
-      }
+    if (delivery.deliveryItemType === "consolidation" && delivery.consolidation?.parcels?.[0]?.receiver?.address) {
+      return delivery.consolidation.parcels[0].receiver.address;
+    } else if (delivery.deliveryItemType === "parcel" && delivery.parcels?.[0]?.receiver?.address) {
+      return delivery.parcels[0].receiver.address;
     }
+
+    return null;
+  };
+
+  const openNavigation = (delivery: Delivery) => {
+    const address = getDestinationAddress(delivery);
 
     if (address) {
       const encoded = encodeURIComponent(address);
@@ -250,14 +288,17 @@ const CurrentDeliveries = ({ userId, setActiveTab }: { userId?: string; setActiv
     }
   };
 
-  const callCustomer = (delivery: Delivery) => {
-    let phoneNumber = null;
-
+  const getCustomerPhone = (delivery: Delivery): string | null => {
     if (delivery.deliveryItemType === "consolidation" && delivery.consolidation?.parcels?.[0]?.receiver?.phoneNumber) {
-      phoneNumber = delivery.consolidation.parcels[0].receiver.phoneNumber;
+      return delivery.consolidation.parcels[0].receiver.phoneNumber;
     } else if (delivery.deliveryItemType === "parcel" && delivery.parcels?.[0]?.receiver?.phoneNumber) {
-      phoneNumber = delivery.parcels[0].receiver.phoneNumber;
+      return delivery.parcels[0].receiver.phoneNumber;
     }
+    return null;
+  };
+
+  const callCustomer = (delivery: Delivery) => {
+    const phoneNumber = getCustomerPhone(delivery);
 
     if (phoneNumber) {
       window.location.href = `tel:${phoneNumber}`;
@@ -282,6 +323,16 @@ const CurrentDeliveries = ({ userId, setActiveTab }: { userId?: string; setActiv
       near_destination: "bg-purple-500/20 text-purple-400 border-purple-500/50",
     };
     return colors[status] || "bg-gray-500/20 text-gray-400 border-gray-500/50";
+  };
+
+  const getPriorityColor = (priority: string): string => {
+    const colors: Record<string, string> = {
+      low: "bg-gray-500/20 text-gray-400 border-gray-500/50",
+      normal: "bg-blue-500/20 text-blue-400 border-blue-500/50",
+      high: "bg-red-500/20 text-red-400 border-red-500/50",
+      urgent: "bg-red-600/20 text-red-500 border-red-600/50",
+    };
+    return colors[priority] || "bg-gray-500/20 text-gray-400 border-gray-500/50";
   };
 
   const getNextAction = (delivery: Delivery) => {
@@ -355,6 +406,18 @@ const CurrentDeliveries = ({ userId, setActiveTab }: { userId?: string; setActiv
       default:
         return null;
     }
+  };
+
+  const formatDeliveryType = (type: string): string => {
+    return type.split('_').map(word => 
+      word.charAt(0).toUpperCase() + word.slice(1)
+    ).join(' → ');
+  };
+
+  const formatDateTime = (dateString?: string): string => {
+    if (!dateString) return "Not set";
+    const date = new Date(dateString);
+    return date.toLocaleString();
   };
 
   if (loading)
@@ -436,6 +499,7 @@ const CurrentDeliveries = ({ userId, setActiveTab }: { userId?: string; setActiv
               key={delivery._id}
               className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6 hover:-translate-y-1 hover:border-blue-400 transition-all"
             >
+              {/* Header Section */}
               <div className="flex justify-between items-start mb-4">
                 <div>
                   <div className="text-blue-400 font-semibold text-lg mb-1">
@@ -444,10 +508,15 @@ const CurrentDeliveries = ({ userId, setActiveTab }: { userId?: string; setActiv
                   <div className="text-sm text-gray-500">
                     {delivery.deliveryItemType === "consolidation" 
                       ? `Consolidation: ${delivery.consolidation?.referenceCode || "N/A"}`
-                      : `Parcel Delivery`}
+                      : `Parcel Delivery (${items.length} item${items.length !== 1 ? 's' : ''})`}
                   </div>
-                  <div className="text-xs text-purple-400 mt-1">
-                    {formatStatus(delivery.deliveryType)}
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className="text-xs text-purple-400 bg-purple-500/10 px-2 py-1 rounded border border-purple-500/30">
+                      {formatDeliveryType(delivery.deliveryType)}
+                    </span>
+                    <span className={`text-xs px-2 py-1 rounded border font-medium ${getPriorityColor(delivery.priority)}`}>
+                      {delivery.priority.toUpperCase()} PRIORITY
+                    </span>
                   </div>
                 </div>
                 <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${getStatusColor(delivery.status)}`}>
@@ -455,26 +524,81 @@ const CurrentDeliveries = ({ userId, setActiveTab }: { userId?: string; setActiv
                 </span>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div className="flex items-center gap-2 text-gray-400">
-                  <Package className="w-4 h-4" />
-                  <span>{items.length} Item{items.length !== 1 ? 's' : ''}</span>
+              {/* Route Information */}
+              <div className="mb-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700">
+                <h4 className="text-gray-300 font-medium mb-3 flex items-center gap-2">
+                  <MapPin className="w-4 h-4" />
+                  Route Information
+                </h4>
+                <div className="space-y-3">
+                  {/* From Location */}
+                  <div className="flex items-start gap-3">
+                    <div className="w-2 h-2 bg-green-400 rounded-full mt-2 flex-shrink-0"></div>
+                    <div className="flex-1">
+                      <div className="text-xs text-gray-500 mb-1">FROM</div>
+                      <div className="text-gray-300">
+                        {delivery.fromLocation.type === "warehouse" ? (
+                          <div className="flex items-center gap-2">
+                            <Warehouse className="w-4 h-4 text-green-400" />
+                            <span>{delivery.fromLocation.locationName || "Warehouse"}</span>
+                          </div>
+                        ) : (
+                          <div>{delivery.fromLocation.address || delivery.fromLocation.locationName || "Pickup Address"}</div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* To Location */}
+                  <div className="flex items-start gap-3">
+                    <div className="w-2 h-2 bg-red-400 rounded-full mt-2 flex-shrink-0"></div>
+                    <div className="flex-1">
+                      <div className="text-xs text-gray-500 mb-1">TO</div>
+                      <div className="text-gray-300">
+                        {delivery.toLocation.type === "warehouse" ? (
+                          <div className="flex items-center gap-2">
+                            <Warehouse className="w-4 h-4 text-red-400" />
+                            <span>{delivery.toLocation.locationName || "Warehouse"}</span>
+                          </div>
+                        ) : (
+                          <div>{delivery.toLocation.address || delivery.toLocation.locationName || "Delivery Address"}</div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 text-gray-400">
+              </div>
+
+              {/* Time Information */}
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className="flex items-center gap-2 text-gray-400 text-sm">
                   <Clock className="w-4 h-4" />
                   {delivery.actualPickupTime ? (
-                    <span>Picked up: {new Date(delivery.actualPickupTime).toLocaleTimeString()}</span>
+                    <div>
+                      <div className="text-xs text-gray-500">Picked Up</div>
+                      <div className="text-green-400">{new Date(delivery.actualPickupTime).toLocaleTimeString()}</div>
+                    </div>
                   ) : (
                     <span>Not picked up yet</span>
                   )}
                 </div>
+                {delivery.estimatedDeliveryTime && (
+                  <div className="flex items-center gap-2 text-gray-400 text-sm">
+                    <Clock className="w-4 h-4" />
+                    <div>
+                      <div className="text-xs text-gray-500">Est. Delivery</div>
+                      <div className="text-blue-400">{new Date(delivery.estimatedDeliveryTime).toLocaleTimeString()}</div>
+                    </div>
+                  </div>
+                )}
               </div>
 
+              {/* Items List */}
               {items.length > 0 && (
                 <div className="mb-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700">
                   <h4 className="text-gray-300 font-medium mb-3 flex items-center gap-2">
                     <Package className="w-4 h-4" />
-                    Items in this delivery:
+                    Items in this delivery ({items.length}):
                   </h4>
                   <div className="space-y-2">
                     {items.slice(0, 3).map((item, idx) => (
@@ -504,20 +628,7 @@ const CurrentDeliveries = ({ userId, setActiveTab }: { userId?: string; setActiv
                 </div>
               )}
 
-              {delivery.toLocation && (
-                <div className="mb-4 flex items-start gap-2 text-gray-400">
-                  <MapPin className="w-4 h-4 mt-1 flex-shrink-0" />
-                  <div>
-                    <div className="font-medium text-gray-300">Destination</div>
-                    <div className="text-sm">
-                      {delivery.toLocation.type === "address" 
-                        ? delivery.toLocation.address || "Address not available"
-                        : `Warehouse: ${delivery.toLocation.locationName || "Warehouse"}`}
-                    </div>
-                  </div>
-                </div>
-              )}
-
+              {/* Special Instructions */}
               {delivery.deliveryInstructions && (
                 <div className="mb-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
                   <div className="flex items-start gap-2">
@@ -530,6 +641,20 @@ const CurrentDeliveries = ({ userId, setActiveTab }: { userId?: string; setActiv
                 </div>
               )}
 
+              {/* Notes */}
+              {delivery.notes && (
+                <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <div className="text-blue-400 font-medium text-sm mb-1">Notes</div>
+                      <div className="text-gray-300 text-sm">{delivery.notes}</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Action Buttons */}
               <div className="flex flex-wrap gap-2">
                 {getNextAction(delivery)}
 
@@ -541,13 +666,15 @@ const CurrentDeliveries = ({ userId, setActiveTab }: { userId?: string; setActiv
                   Navigate
                 </button>
 
-                <button
-                  onClick={() => callCustomer(delivery)}
-                  className="bg-gray-600 text-gray-200 px-4 py-2 rounded-lg border border-gray-500 hover:bg-gray-500 hover:-translate-y-1 transition-all flex items-center gap-2"
-                >
-                  <Phone className="w-4 h-4" />
-                  Call Customer
-                </button>
+                {getCustomerPhone(delivery) && (
+                  <button
+                    onClick={() => callCustomer(delivery)}
+                    className="bg-gray-600 text-gray-200 px-4 py-2 rounded-lg border border-gray-500 hover:bg-gray-500 hover:-translate-y-1 transition-all flex items-center gap-2"
+                  >
+                    <Phone className="w-4 h-4" />
+                    Call Customer
+                  </button>
+                )}
               </div>
             </div>
           );

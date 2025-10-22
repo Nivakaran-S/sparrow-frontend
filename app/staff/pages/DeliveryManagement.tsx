@@ -163,6 +163,26 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
     courierExperience: "2"
   });
 
+  // Validate delivery route based on backend rules
+  const validateDeliveryRoute = () => {
+    const { fromLocationType, toLocationType } = formData;
+    
+    // Valid combinations according to backend:
+    // 1. address → warehouse
+    // 2. warehouse → warehouse
+    // 3. warehouse → address
+    
+    // Invalid: address → address
+    if (fromLocationType === 'address' && toLocationType === 'address') {
+      return {
+        isValid: false,
+        message: "Direct address-to-address delivery is not allowed. Please select at least one warehouse location."
+      };
+    }
+    
+    return { isValid: true, message: "" };
+  };
+
   // Geocoding function to fetch coordinates from address
   const geocodeAddress = async (address: string): Promise<{ lat: number; lng: number; formattedAddress: string } | null> => {
     if (!address.trim()) {
@@ -224,10 +244,9 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
       const data = await response.json();
       
       if (data.status === "OK" && data.rows && data.rows[0].elements && data.rows[0].elements[0].status === "OK") {
-        const duration = data.rows[0].elements[0].duration.value; // in seconds
+        const duration = data.rows[0].elements[0].duration.value;
         const durationInTraffic = data.rows[0].elements[0].duration_in_traffic?.value || duration;
         
-        // Calculate traffic ratio
         const trafficRatio = durationInTraffic / duration;
         
         if (trafficRatio < 1.2) return "Low";
@@ -235,11 +254,9 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
         else return "High";
       }
       
-      // Default to Medium if API fails
       return "Medium";
     } catch (error) {
       console.error("Traffic data error:", error);
-      // Default to Medium traffic
       return "Medium";
     }
   };
@@ -256,19 +273,16 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
       if (data.weather && data.weather.length > 0) {
         const mainWeather = data.weather[0].main.toLowerCase();
         
-        // Map weather conditions to our categories
         if (mainWeather.includes('rain') || mainWeather.includes('drizzle')) return "Rainy";
         if (mainWeather.includes('snow')) return "Snowy";
         if (mainWeather.includes('fog') || mainWeather.includes('mist') || mainWeather.includes('haze')) return "Foggy";
-        if (data.wind?.speed > 10) return "Windy"; // Wind speed > 10 m/s
+        if (data.wind?.speed > 10) return "Windy";
         return "Clear";
       }
       
-      // Default to Clear if API fails
       return "Clear";
     } catch (error) {
       console.error("Weather data error:", error);
-      // Default to Clear weather
       return "Clear";
     }
   };
@@ -284,9 +298,15 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
 
   // Predict ETA using the ML model
   const predictETA = async () => {
-    // Validate required fields
     if (!formData.assignedDriver) {
       alert("Please select a driver first");
+      return;
+    }
+
+    // Validate route before prediction
+    const routeValidation = validateDeliveryRoute();
+    if (!routeValidation.isValid) {
+      alert(routeValidation.message);
       return;
     }
 
@@ -339,25 +359,14 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
     setIsPredictingETA(true);
 
     try {
-      // Calculate distance
       const distance = calculateDistance(fromLat, fromLng, toLat, toLng);
-      
-      // Get traffic level
       const trafficLevel = await getTrafficData(fromLat, fromLng, toLat, toLng);
-      
-      // Get weather (using midpoint or destination)
       const midLat = (fromLat + toLat) / 2;
       const midLng = (fromLng + toLng) / 2;
       const weather = await getWeatherData(midLat, midLng);
-      
-      // Get time of day
       const timeOfDay = getTimeOfDay();
-      
-      // Get courier experience from selected driver
-      const selectedDriver = drivers.find(d => d._id === formData.assignedDriver);
       const courierExperience = parseFloat(formData.courierExperience) || 2;
 
-      // Prepare features for the model
       const features = {
         Distance_km: distance,
         Courier_Experience_yrs: courierExperience,
@@ -375,12 +384,7 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
       };
 
       console.log("Prediction features:", features);
-      console.log("Distance:", distance, "km");
-      console.log("Traffic:", trafficLevel);
-      console.log("Weather:", weather);
-      console.log("Time of Day:", timeOfDay);
 
-      // Call the ETA prediction API
       const response = await fetch(`${ETA_PREDICTION_API}/predict`, {
         method: 'POST',
         headers: {
@@ -399,7 +403,6 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
         const predictedMinutes = result.predicted_delivery_time;
         setPredictedETA(predictedMinutes);
         
-        // Calculate estimated delivery time
         const now = new Date();
         const estimatedTime = new Date(now.getTime() + predictedMinutes * 60000);
         const formattedTime = estimatedTime.toISOString().slice(0, 16);
@@ -422,7 +425,6 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
     }
   };
 
-  // Handle geocoding for "From" location
   const handleGeocodeFromAddress = async () => {
     if (!formData.fromAddress) {
       alert("Please enter a \"From\" address first");
@@ -443,7 +445,6 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
     }
   };
 
-  // Handle geocoding for "To" location
   const handleGeocodeToAddress = async () => {
     if (!formData.toAddress) {
       alert("Please enter a \"To\" address first");
@@ -599,7 +600,6 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
       updates.toAddress = parcel.receiver.address;
       updates.toLocationName = parcel.receiver.name || "";
       
-      // Auto-geocode the receiver address
       const result = await geocodeAddress(parcel.receiver.address);
       if (result) {
         updates.toLatitude = result.lat.toString();
@@ -637,7 +637,6 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
         updates.toAddress = firstParcel.receiver.address;
         updates.toLocationName = firstParcel.receiver.name || "";
         
-        // Auto-geocode the receiver address
         const result = await geocodeAddress(firstParcel.receiver.address);
         if (result) {
           updates.toLatitude = result.lat.toString();
@@ -684,6 +683,13 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
   const handleCreateDelivery = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Validate route
+    const routeValidation = validateDeliveryRoute();
+    if (!routeValidation.isValid) {
+      alert(routeValidation.message);
+      return;
+    }
+
     const deliveryData: any = {
       deliveryItemType: formData.deliveryItemType,
       assignedDriver: formData.assignedDriver,
@@ -700,14 +706,30 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
     };
 
     if (formData.deliveryItemType === "parcel") {
+      if (formData.parcels.length === 0) {
+        alert("Please select at least one parcel");
+        return;
+      }
       deliveryData.parcels = formData.parcels;
     } else {
+      if (!formData.consolidation) {
+        alert("Please select a consolidation");
+        return;
+      }
       deliveryData.consolidation = formData.consolidation;
     }
 
     if (formData.fromLocationType === "warehouse") {
+      if (!formData.fromWarehouseId) {
+        alert("Please select a 'From' warehouse");
+        return;
+      }
       deliveryData.fromLocation.warehouseId = formData.fromWarehouseId;
     } else {
+      if (!formData.fromAddress || !formData.fromLatitude || !formData.fromLongitude) {
+        alert("Please provide complete 'From' address information including coordinates");
+        return;
+      }
       deliveryData.fromLocation.address = formData.fromAddress;
       deliveryData.fromLocation.latitude = parseFloat(formData.fromLatitude);
       deliveryData.fromLocation.longitude = parseFloat(formData.fromLongitude);
@@ -715,8 +737,16 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
     }
 
     if (formData.toLocationType === "warehouse") {
+      if (!formData.toWarehouseId) {
+        alert("Please select a 'To' warehouse");
+        return;
+      }
       deliveryData.toLocation.warehouseId = formData.toWarehouseId;
     } else {
+      if (!formData.toAddress || !formData.toLatitude || !formData.toLongitude) {
+        alert("Please provide complete 'To' address information including coordinates");
+        return;
+      }
       deliveryData.toLocation.address = formData.toAddress;
       deliveryData.toLocation.latitude = parseFloat(formData.toLatitude);
       deliveryData.toLocation.longitude = parseFloat(formData.toLongitude);
@@ -726,6 +756,8 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
     if (formData.estimatedDeliveryTime) {
       deliveryData.estimatedDeliveryTime = formData.estimatedDeliveryTime;
     }
+
+    console.log("Sending delivery data:", deliveryData);
 
     try {
       const res = await fetch(`${API_BASE_URL}/api/parcels/api/deliveries`, {
@@ -961,9 +993,9 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
                   className="w-full px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="all">All Types</option>
-                  <option value="standard">Standard</option>
-                  <option value="express">Express</option>
-                  <option value="same_day">Same Day</option>
+                  <option value="address_to_warehouse">Address → Warehouse</option>
+                  <option value="warehouse_to_warehouse">Warehouse → Warehouse</option>
+                  <option value="warehouse_to_address">Warehouse → Address</option>
                 </select>
               </div>
             </div>
@@ -985,7 +1017,7 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
               <Clock className="w-5 h-5 text-yellow-400" />
             </div>
             <p className="text-3xl font-bold text-white">
-              {deliveries.filter(d => d.status === 'pending').length}
+              {deliveries.filter(d => d.status === 'pending' || d.status === 'assigned').length}
             </p>
           </div>
           <div className="bg-gradient-to-br from-purple-500/10 to-purple-600/10 border border-purple-500/20 rounded-xl p-6">
@@ -994,7 +1026,7 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
               <Truck className="w-5 h-5 text-purple-400" />
             </div>
             <p className="text-3xl font-bold text-white">
-              {deliveries.filter(d => d.status === 'in_transit').length}
+              {deliveries.filter(d => d.status === 'in_transit' || d.status === 'picked_up').length}
             </p>
           </div>
           <div className="bg-gradient-to-br from-green-500/10 to-green-600/10 border border-green-500/20 rounded-xl p-6">
@@ -1082,7 +1114,7 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
                             <MapPin className="w-3 h-3 text-green-400" />
                             <span className="text-gray-300">
                               {delivery.fromLocation.type === 'warehouse' 
-                                ? 'Warehouse' 
+                                ? delivery.fromLocation.warehouseId?.name || 'Warehouse'
                                 : delivery.fromLocation.locationName || 'Custom Location'}
                             </span>
                           </div>
@@ -1090,7 +1122,7 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
                             <MapPin className="w-3 h-3 text-red-400" />
                             <span className="text-gray-300">
                               {delivery.toLocation.type === 'warehouse' 
-                                ? 'Warehouse' 
+                                ? delivery.toLocation.warehouseId?.name || 'Warehouse'
                                 : delivery.toLocation.locationName || 'Custom Location'}
                             </span>
                           </div>
@@ -1128,7 +1160,7 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
                           {delivery.status !== 'delivered' && delivery.status !== 'cancelled' && (
                             <button
                               onClick={() => {
-                                const newStatus = delivery.status === 'pending' ? 'in_transit' : 'delivered';
+                                const newStatus = delivery.status === 'assigned' || delivery.status === 'pending' ? 'in_transit' : 'delivered';
                                 handleUpdateStatus(delivery._id, newStatus);
                               }}
                               className="p-2 hover:bg-green-500/20 text-green-400 rounded-lg transition-all"
@@ -1162,7 +1194,7 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
           <div className="bg-gray-800 rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto border border-gray-700">
-            <div className="sticky top-0 bg-gray-800 border-b border-gray-700 px-6 py-4 flex items-center justify-between">
+            <div className="sticky top-0 bg-gray-800 border-b border-gray-700 px-6 py-4 flex items-center justify-between z-10">
               <h2 className="text-2xl font-bold text-white">Create New Delivery</h2>
               <button
                 onClick={() => {
@@ -1176,6 +1208,19 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
             </div>
 
             <form onSubmit={handleCreateDelivery} className="p-6 space-y-6">
+              {/* Route Validation Warning */}
+              {formData.fromLocationType === 'address' && formData.toLocationType === 'address' && (
+                <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-red-400 font-medium">Invalid Route Configuration</p>
+                    <p className="text-red-300 text-sm mt-1">
+                      Direct address-to-address delivery is not allowed. Please select at least one warehouse location (either From or To).
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Delivery Item Type Selection */}
               <div>
                 <label className="block text-gray-400 text-sm mb-2">Delivery Item Type *</label>
@@ -1575,7 +1620,7 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
                   <button
                     type="button"
                     onClick={predictETA}
-                    disabled={isPredictingETA}
+                    disabled={isPredictingETA || (formData.fromLocationType === 'address' && formData.toLocationType === 'address')}
                     className="px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-all flex items-center gap-2 shadow-lg"
                   >
                     {isPredictingETA ? (
@@ -1665,7 +1710,8 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-lg transition-all"
+                  disabled={formData.fromLocationType === 'address' && formData.toLocationType === 'address'}
+                  className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-all"
                 >
                   Create Delivery
                 </button>
@@ -1679,7 +1725,7 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
       {showDetailsModal && selectedDelivery && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
           <div className="bg-gray-800 rounded-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto border border-gray-700">
-            <div className="sticky top-0 bg-gray-800 border-b border-gray-700 px-6 py-4 flex items-center justify-between">
+            <div className="sticky top-0 bg-gray-800 border-b border-gray-700 px-6 py-4 flex items-center justify-between z-10">
               <h2 className="text-2xl font-bold text-white">Delivery Details</h2>
               <button
                 onClick={() => {
@@ -1743,7 +1789,7 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
                     <p className="text-green-400 text-sm font-medium mb-2">From Location</p>
                     <p className="text-white">
                       {selectedDelivery.fromLocation.type === 'warehouse' 
-                        ? 'Warehouse' 
+                        ? selectedDelivery.fromLocation.warehouseId?.name || 'Warehouse'
                         : selectedDelivery.fromLocation.locationName || 'Custom Location'}
                     </p>
                     {selectedDelivery.fromLocation.address && (
@@ -1759,7 +1805,7 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
                     <p className="text-red-400 text-sm font-medium mb-2">To Location</p>
                     <p className="text-white">
                       {selectedDelivery.toLocation.type === 'warehouse' 
-                        ? 'Warehouse' 
+                        ? selectedDelivery.toLocation.warehouseId?.name || 'Warehouse'
                         : selectedDelivery.toLocation.locationName || 'Custom Location'}
                     </p>
                     {selectedDelivery.toLocation.address && (
