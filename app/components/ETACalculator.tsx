@@ -587,12 +587,6 @@ export default function ETACalculator() {
                                                     {distanceInfo.route}
                                                 </p>
                                                 <div className="mt-2 space-y-1">
-                                                    <p className="text-xs text-blue-700">
-                                                        Google Maps (no traffic): {distanceInfo.duration}
-                                                    </p>
-                                                    <p className="text-xs text-blue-700">
-                                                        Google Maps (with traffic): {distanceInfo.durationInTraffic}
-                                                    </p>
                                                     <p className="text-xs text-blue-700 font-semibold">
                                                         ML-Predicted: {estimatedTime.toFixed(0)} minutes
                                                     </p>
