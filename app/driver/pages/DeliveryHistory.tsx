@@ -82,7 +82,7 @@ interface Delivery {
   updatedTimestamp?: string;
 }
 
-const DeliveryHistory = ({ userId }: { userId?: string }) => {
+const DeliveryHistory = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (tab: string) => void }) => {
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);

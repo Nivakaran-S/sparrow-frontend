@@ -224,7 +224,7 @@ export default function SwiftScreen({ setActiveTab }: TrackShipmentsProps) {
     // Split by code blocks and tables
     const codeBlockRegex = /```(\w+)?\n([\s\S]*?)```/g;
     const parts: JSX.Element[] = [];
-    let lastIndex = 0;
+    const lastIndex = 0;
     let match;
 
     // First, handle code blocks
