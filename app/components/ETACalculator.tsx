@@ -257,7 +257,7 @@ export default function ETACalculator() {
 
             console.log("Sending payload:", payload);
 
-            const response = await fetch("http://localhost:8000/predict", {
+            const response = await fetch("https://nivakaran-eta-service.hf.space/predict", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
