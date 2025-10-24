@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { DollarSign, TrendingUp, Package, Calendar, RefreshCw, Clock, Award, Truck, CheckCircle, XCircle } from "lucide-react";
+import { DollarSign, TrendingUp, Package, Calendar, RefreshCw, Clock, Award, Truck, CheckCircle, XCircle, AlertCircle } from "lucide-react";
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || "https://api-gateway-nine-orpin.vercel.app";
 
@@ -71,6 +71,7 @@ const Earnings = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (t
   const [driverId, setDriverId] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [commissionWarning, setCommissionWarning] = useState(false);
 
   useEffect(() => {
     checkAuth();
@@ -107,15 +108,18 @@ const Earnings = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (t
   };
 
   const fetchAllData = async () => {
-    await Promise.all([fetchEarnings(), fetchEarningsSummary()]);
-    setLastUpdate(new Date());
+    try {
+      await Promise.all([fetchEarnings(), fetchEarningsSummary()]);
+      setLastUpdate(new Date());
+    } catch (err) {
+      console.error("Error fetching all data:", err);
+    }
   };
 
   const fetchEarnings = async () => {
     if (!driverId) return;
 
     try {
-      setLoading(true);
       setError(null);
 
       const response = await fetch(
@@ -123,7 +127,16 @@ const Earnings = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (t
         { credentials: "include" }
       );
 
-      if (!response.ok) throw new Error("Failed to fetch earnings");
+      if (!response.ok) {
+        // Check if it's a 404 (no earnings yet)
+        if (response.status === 404) {
+          setEarnings([]);
+          calculatePeriodStats([]);
+          setLoading(false);
+          return;
+        }
+        throw new Error("Failed to fetch earnings");
+      }
 
       const result = await response.json();
 
@@ -131,10 +144,22 @@ const Earnings = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (t
         const earningsData = result.data || [];
         setEarnings(earningsData);
         calculatePeriodStats(earningsData);
+        
+        // Check if any earnings have 0% commission rate (warning sign)
+        const hasZeroCommission = earningsData.some((e: EarningRecord) => e.commissionRate === 0);
+        setCommissionWarning(hasZeroCommission);
+      } else {
+        setEarnings([]);
+        calculatePeriodStats([]);
       }
     } catch (err: any) {
       console.error("Error fetching earnings:", err);
-      setError(err.message);
+      // Don't show error if it's just empty data
+      if (err.message !== "Failed to fetch earnings") {
+        setError(err.message);
+      }
+      setEarnings([]);
+      calculatePeriodStats([]);
     } finally {
       setLoading(false);
     }
@@ -149,15 +174,25 @@ const Earnings = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (t
         { credentials: "include" }
       );
 
-      if (!response.ok) throw new Error("Failed to fetch summary");
+      if (!response.ok) {
+        // If 404, just set empty summary
+        if (response.status === 404) {
+          setSummary(null);
+          return;
+        }
+        throw new Error("Failed to fetch summary");
+      }
 
       const result = await response.json();
 
       if (result.success) {
         setSummary(result.data);
+      } else {
+        setSummary(null);
       }
     } catch (err: any) {
       console.error("Error fetching summary:", err);
+      setSummary(null);
     }
   };
 
@@ -251,7 +286,7 @@ const Earnings = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (t
 
   if (loading && !earnings.length) {
     return (
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-6xl mx-auto p-6">
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
@@ -262,24 +297,8 @@ const Earnings = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (t
     );
   }
 
-  if (error && !earnings.length) {
-    return (
-      <div className="max-w-6xl mx-auto">
-        <div className="bg-red-500/10 border border-red-500 rounded-xl p-6 text-center">
-          <p className="text-red-400 mb-4">Error: {error}</p>
-          <button
-            onClick={fetchAllData}
-            className="bg-blue-600 cursor-pointer text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-all"
-          >
-            Retry
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="max-w-6xl mx-auto p-6">
       <div className="flex justify-between items-center mb-8">
         <div>
           <h2 className="text-3xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
@@ -293,13 +312,44 @@ const Earnings = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (t
         </div>
         <button
           onClick={fetchAllData}
-          className="text-gray-400 cursor-pointer hover:text-white transition-colors flex items-center gap-2"
+          disabled={loading}
+          className="text-gray-400 cursor-pointer hover:text-white transition-colors flex items-center gap-2 disabled:opacity-50"
           title="Refresh data"
         >
-          <RefreshCw className="w-5 h-5" />
+          <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
           Refresh
         </button>
       </div>
+
+      {/* Commission Warning */}
+      {commissionWarning && (
+        <div className="mb-6 bg-yellow-500/10 border border-yellow-500 rounded-lg p-4 flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-yellow-400 font-semibold mb-1">Commission Settings Issue</p>
+            <p className="text-gray-300 text-sm">
+              Some of your earnings show 0% commission rate. This means commission settings may not be properly configured. 
+              Please contact your administrator to initialize commission settings.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Error Message */}
+      {error && (
+        <div className="mb-6 bg-red-500/10 border border-red-500 rounded-lg p-4 flex items-center gap-3">
+          <AlertCircle className="w-5 h-5 text-red-400" />
+          <div className="flex-1">
+            <p className="text-red-400">{error}</p>
+          </div>
+          <button
+            onClick={fetchAllData}
+            className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-all"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* Main Earning Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -348,7 +398,7 @@ const Earnings = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (t
       </div>
 
       {/* Summary Cards */}
-      {summary && (
+      {summary ? (
         <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6 mb-8">
           <h3 className="text-lg font-semibold text-white mb-6 flex items-center gap-2">
             <TrendingUp className="w-5 h-5 text-blue-400" />
@@ -418,6 +468,13 @@ const Earnings = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (t
             </div>
           </div>
         </div>
+      ) : earnings.length > 0 && (
+        <div className="mb-6 bg-blue-500/10 border border-blue-500 rounded-lg p-4 flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+          <p className="text-blue-300 text-sm">
+            Earnings summary is being calculated. Refresh to see updated summary.
+          </p>
+        </div>
       )}
 
       {/* Filter Tabs */}
@@ -470,7 +527,7 @@ const Earnings = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (t
                           <div className="text-white font-semibold">
                             {earning.delivery.deliveryNumber}
                           </div>
-                          <div className="text-gray-400 text-sm flex items-center gap-2 mt-1">
+                          <div className="text-gray-400 text-sm flex items-center gap-2 mt-1 flex-wrap">
                             <span>{itemCount} item{itemCount !== 1 ? 's' : ''}</span>
                             <span>•</span>
                             <span className="text-purple-400">
@@ -506,9 +563,14 @@ const Earnings = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (t
                       </div>
                     </div>
                     <div>
-                      <div className="text-gray-500 text-xs">Commission ({earning.commissionRate}%)</div>
-                      <div className="text-blue-400 text-sm font-semibold">
-                        Rs. {earning.commissionAmount.toFixed(2)}
+                      <div className="text-gray-500 text-xs">
+                        Commission 
+                        {earning.commissionRate === 0 && (
+                          <span className="ml-1 text-yellow-400">⚠️</span>
+                        )}
+                      </div>
+                      <div className={`text-sm font-semibold ${earning.commissionRate === 0 ? 'text-yellow-400' : 'text-blue-400'}`}>
+                        {earning.commissionRate}% = Rs. {earning.commissionAmount.toFixed(2)}
                       </div>
                     </div>
                     {earning.bonusAmount > 0 && (
@@ -559,11 +621,22 @@ const Earnings = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (t
           <h3 className="text-xl font-semibold text-gray-300 mb-2">
             No Earnings Found
           </h3>
-          <p className="text-gray-400">
+          <p className="text-gray-400 mb-4">
             {filterStatus === 'all' 
               ? "You haven't earned anything yet. Complete deliveries to start earning!"
               : `No ${filterStatus} earnings found.`}
           </p>
+          {earnings.length === 0 && (
+            <div className="mt-6 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg text-left max-w-md mx-auto">
+              <h4 className="text-blue-400 font-semibold mb-2">How to Start Earning:</h4>
+              <ol className="text-gray-300 text-sm space-y-1 list-decimal list-inside">
+                <li>Accept delivery assignments from admin</li>
+                <li>Complete deliveries and mark them as delivered</li>
+                <li>Earnings are automatically calculated and approved</li>
+                <li>Check back here to see your earnings</li>
+              </ol>
+            </div>
+          )}
         </div>
       )}
 
@@ -580,7 +653,7 @@ const Earnings = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (t
               calculated from distance, weight, and delivery type. You earn a commission percentage (set by admin) 
               on this base amount. Urgent deliveries may include additional bonuses. Earnings are typically approved 
               automatically and paid weekly to your registered bank account. Contact admin if you have questions 
-              about your earnings.
+              about your earnings or if you see 0% commission rates.
             </p>
           </div>
         </div>

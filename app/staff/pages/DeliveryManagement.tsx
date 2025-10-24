@@ -25,7 +25,7 @@ import {
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api-gateway-nine-orpin.vercel.app";
 const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "AIzaSyDclUQazAMvwp52Kr91LM-yOPoY9-z7q18";
-const ETA_PREDICTION_API = process.env.NEXT_PUBLIC_ETA_PREDICTION_API || "http://localhost:8000";
+const ETA_PREDICTION_API = process.env.NEXT_PUBLIC_ETA_PREDICTION_API || "https://nivakaran-eta-service.hf.space";
 const WEATHER_API_KEY = process.env.NEXT_PUBLIC_WEATHER_API_KEY || "eca50f9fca8dff48998f311ce5c18737";
 
 interface Delivery {

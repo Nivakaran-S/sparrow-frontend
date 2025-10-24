@@ -15,6 +15,7 @@ import SwiftScreen from "./pages/SwiftScreen";
 import AdminPricing from "./pages/AdminPricing";
 import AdminProfile from "./pages/AdminProfile";
 import AdminDriverPricing from "./pages/AdminDriverPricing";
+import CommissionSettings from "./pages/CommissionSettings";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api-gateway-nine-orpin.vercel.app";
 
@@ -112,6 +113,7 @@ export default function AdminDashboard() {
           {activeTab === 'logs' && <SystemLogs setActiveTab={setActiveTab}/>}
           {activeTab === 'reports' && <Reports setActiveTab={setActiveTab}/>}
           {activeTab === 'swift' && <SwiftScreen setActiveTab={setActiveTab}/>}
+          {activeTab === 'commission' && <CommissionSettings setActiveTab={setActiveTab} />}
         </main>
       </div>
     </div>
