@@ -99,6 +99,7 @@ const Earnings = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (t
         throw new Error("Not authorized - Driver role required");
       }
 
+      console.log("✅ Auth successful, Driver ID:", data.id);
       setDriverId(data.id);
     } catch (err: any) {
       console.error("Auth check failed:", err);
@@ -122,39 +123,55 @@ const Earnings = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (t
     try {
       setError(null);
 
-      const response = await fetch(
-        `${API_BASE_URL}/api/parcels/api/earnings/driver/${driverId}`,
-        { credentials: "include" }
-      );
+    
+      const url = `${API_BASE_URL}/api/parcels/api/earnings/driver/${driverId}`;
+      console.log("📡 Fetching earnings from:", url);
+
+      const response = await fetch(url, { 
+        credentials: "include" 
+      });
+
+      console.log("📊 Earnings response status:", response.status);
 
       if (!response.ok) {
         // Check if it's a 404 (no earnings yet)
         if (response.status === 404) {
+          console.log("ℹ️ No earnings found (404)");
           setEarnings([]);
           calculatePeriodStats([]);
           setLoading(false);
           return;
         }
+        
+        const errorText = await response.text();
+        console.error("❌ Earnings fetch error:", errorText);
         throw new Error("Failed to fetch earnings");
       }
 
       const result = await response.json();
+      console.log("📦 Earnings data received:", result);
 
-      if (result.success) {
-        const earningsData = result.data || [];
+      if (result.success && result.data) {
+        const earningsData = Array.isArray(result.data) ? result.data : [];
+        console.log(`✅ Found ${earningsData.length} earnings records`);
         setEarnings(earningsData);
         calculatePeriodStats(earningsData);
         
         // Check if any earnings have 0% commission rate (warning sign)
         const hasZeroCommission = earningsData.some((e: EarningRecord) => e.commissionRate === 0);
         setCommissionWarning(hasZeroCommission);
+        
+        if (hasZeroCommission) {
+          console.warn("⚠️ Some earnings have 0% commission rate");
+        }
       } else {
+        console.log("ℹ️ No earnings data in response");
         setEarnings([]);
         calculatePeriodStats([]);
       }
     } catch (err: any) {
-      console.error("Error fetching earnings:", err);
-      // Don't show error if it's just empty data
+      console.error("❌ Error fetching earnings:", err);
+      // Only show error for non-404 errors
       if (err.message !== "Failed to fetch earnings") {
         setError(err.message);
       }
@@ -169,29 +186,40 @@ const Earnings = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (t
     if (!driverId) return;
 
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/parcels/api/earnings/driver/${driverId}/summary`,
-        { credentials: "include" }
-      );
+      // ✅ FIXED: Match the same URL pattern as CurrentDeliveries.tsx
+      const url = `${API_BASE_URL}/api/parcels/api/earnings/driver/${driverId}/summary`;
+      console.log("📡 Fetching summary from:", url);
+
+      const response = await fetch(url, {
+        credentials: "include"
+      });
+
+      console.log("📊 Summary response status:", response.status);
 
       if (!response.ok) {
         // If 404, just set empty summary
         if (response.status === 404) {
+          console.log("ℹ️ No summary found (404)");
           setSummary(null);
           return;
         }
-        throw new Error("Failed to fetch summary");
+        const errorText = await response.text();
+        console.error("❌ Summary fetch error:", errorText);
+        return;
       }
 
       const result = await response.json();
+      console.log("📦 Summary data received:", result);
 
-      if (result.success) {
+      if (result.success && result.data) {
+        console.log("✅ Summary loaded successfully");
         setSummary(result.data);
       } else {
+        console.log("ℹ️ No summary data in response");
         setSummary(null);
       }
     } catch (err: any) {
-      console.error("Error fetching summary:", err);
+      console.error("❌ Error fetching summary:", err);
       setSummary(null);
     }
   };
@@ -227,6 +255,7 @@ const Earnings = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (t
       }
     });
 
+    console.log("📈 Period stats calculated:", stats);
     setPeriodStats(stats);
   };
 
@@ -329,7 +358,8 @@ const Earnings = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (t
             <p className="text-yellow-400 font-semibold mb-1">Commission Settings Issue</p>
             <p className="text-gray-300 text-sm">
               Some of your earnings show 0% commission rate. This means commission settings may not be properly configured. 
-              Please contact your administrator to initialize commission settings.
+              Please contact your administrator to initialize commission settings by calling the endpoint:
+              <code className="bg-gray-800 px-2 py-1 rounded ml-1">POST /api/commission-settings/initialize</code>
             </p>
           </div>
         </div>

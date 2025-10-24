@@ -85,7 +85,17 @@ interface Warehouse {
   _id: string;
   name: string;
   code: string;
-  address: any;
+  address: {
+    _id: string;
+    locationNumber?: string;
+    street?: string;
+    city?: string;
+    state?: string;
+    postalCode?: string;
+    country?: string;
+    latitude?: number;
+    longitude?: number;
+  };
 }
 
 interface Parcel {
@@ -167,12 +177,6 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
   const validateDeliveryRoute = () => {
     const { fromLocationType, toLocationType } = formData;
     
-    // Valid combinations according to backend:
-    // 1. address → warehouse
-    // 2. warehouse → warehouse
-    // 3. warehouse → address
-    
-    // Invalid: address → address
     if (fromLocationType === 'address' && toLocationType === 'address') {
       return {
         isValid: false,
@@ -183,7 +187,74 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
     return { isValid: true, message: "" };
   };
 
-  // Geocoding function to fetch coordinates from address
+  // Format warehouse address for display
+  const formatWarehouseAddress = (warehouse: Warehouse): string => {
+    const addr = warehouse.address;
+    const parts = [];
+    
+    if (addr.locationNumber) parts.push(addr.locationNumber);
+    if (addr.street) parts.push(addr.street);
+    if (addr.city) parts.push(addr.city);
+    if (addr.state) parts.push(addr.state);
+    if (addr.postalCode) parts.push(addr.postalCode);
+    if (addr.country) parts.push(addr.country);
+    
+    return parts.join(', ') || 'Address not available';
+  };
+
+  // Handle warehouse selection for FROM location
+  const handleFromWarehouseChange = (warehouseId: string) => {
+    const selectedWarehouse = warehouses.find(w => w._id === warehouseId);
+    
+    if (selectedWarehouse && selectedWarehouse.address) {
+      const addr = selectedWarehouse.address;
+      setFormData(prev => ({
+        ...prev,
+        fromWarehouseId: warehouseId,
+        fromAddress: formatWarehouseAddress(selectedWarehouse),
+        fromLatitude: addr.latitude ? addr.latitude.toString() : "",
+        fromLongitude: addr.longitude ? addr.longitude.toString() : "",
+        fromLocationName: selectedWarehouse.name
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        fromWarehouseId: warehouseId,
+        fromAddress: "",
+        fromLatitude: "",
+        fromLongitude: "",
+        fromLocationName: ""
+      }));
+    }
+  };
+
+  // Handle warehouse selection for TO location
+  const handleToWarehouseChange = (warehouseId: string) => {
+    const selectedWarehouse = warehouses.find(w => w._id === warehouseId);
+    
+    if (selectedWarehouse && selectedWarehouse.address) {
+      const addr = selectedWarehouse.address;
+      setFormData(prev => ({
+        ...prev,
+        toWarehouseId: warehouseId,
+        toAddress: formatWarehouseAddress(selectedWarehouse),
+        toLatitude: addr.latitude ? addr.latitude.toString() : "",
+        toLongitude: addr.longitude ? addr.longitude.toString() : "",
+        toLocationName: selectedWarehouse.name
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        toWarehouseId: warehouseId,
+        toAddress: "",
+        toLatitude: "",
+        toLongitude: "",
+        toLocationName: ""
+      }));
+    }
+  };
+
+  // Geocoding function
   const geocodeAddress = async (address: string): Promise<{ lat: number; lng: number; formattedAddress: string } | null> => {
     if (!address.trim()) {
       alert("Please enter an address first");
@@ -221,9 +292,9 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
     }
   };
 
-  // Calculate distance between two coordinates using Haversine formula
+  // Calculate distance
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
-    const R = 6371; // Radius of Earth in kilometers
+    const R = 6371;
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLon = (lon2 - lon1) * Math.PI / 180;
     const a = 
@@ -234,7 +305,7 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
     return R * c;
   };
 
-  // Get traffic data from Google Maps Distance Matrix API
+  // Get traffic data
   const getTrafficData = async (fromLat: number, fromLng: number, toLat: number, toLng: number): Promise<string> => {
     try {
       const response = await fetch(
@@ -261,7 +332,7 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
     }
   };
 
-  // Get weather data from OpenWeatherMap API
+  // Get weather data
   const getWeatherData = async (lat: number, lng: number): Promise<string> => {
     try {
       const response = await fetch(
@@ -296,14 +367,13 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
     return "Night";
   };
 
-  // Predict ETA using the ML model
+  // Predict ETA
   const predictETA = async () => {
     if (!formData.assignedDriver) {
       alert("Please select a driver first");
       return;
     }
 
-    // Validate route before prediction
     const routeValidation = validateDeliveryRoute();
     if (!routeValidation.isValid) {
       alert(routeValidation.message);
@@ -313,47 +383,19 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
     let fromLat: number, fromLng: number, toLat: number, toLng: number;
 
     // Get FROM coordinates
-    if (formData.fromLocationType === 'warehouse') {
-      if (!formData.fromWarehouseId) {
-        alert("Please select a 'From' warehouse");
-        return;
-      }
-      const warehouse = warehouses.find(w => w._id === formData.fromWarehouseId);
-      if (!warehouse || !warehouse.address?.latitude || !warehouse.address?.longitude) {
-        alert("Selected 'From' warehouse does not have coordinates. Please use a custom address instead.");
-        return;
-      }
-      fromLat = parseFloat(warehouse.address.latitude);
-      fromLng = parseFloat(warehouse.address.longitude);
-    } else {
-      fromLat = parseFloat(formData.fromLatitude);
-      fromLng = parseFloat(formData.fromLongitude);
-      if (isNaN(fromLat) || isNaN(fromLng)) {
-        alert("Please provide valid 'From' location coordinates");
-        return;
-      }
+    fromLat = parseFloat(formData.fromLatitude);
+    fromLng = parseFloat(formData.fromLongitude);
+    if (isNaN(fromLat) || isNaN(fromLng)) {
+      alert("Please provide valid 'From' location coordinates");
+      return;
     }
 
     // Get TO coordinates
-    if (formData.toLocationType === 'warehouse') {
-      if (!formData.toWarehouseId) {
-        alert("Please select a 'To' warehouse");
-        return;
-      }
-      const warehouse = warehouses.find(w => w._id === formData.toWarehouseId);
-      if (!warehouse || !warehouse.address?.latitude || !warehouse.address?.longitude) {
-        alert("Selected 'To' warehouse does not have coordinates. Please use a custom address instead.");
-        return;
-      }
-      toLat = parseFloat(warehouse.address.latitude);
-      toLng = parseFloat(warehouse.address.longitude);
-    } else {
-      toLat = parseFloat(formData.toLatitude);
-      toLng = parseFloat(formData.toLongitude);
-      if (isNaN(toLat) || isNaN(toLng)) {
-        alert("Please provide valid 'To' location coordinates");
-        return;
-      }
+    toLat = parseFloat(formData.toLatitude);
+    toLng = parseFloat(formData.toLongitude);
+    if (isNaN(toLat) || isNaN(toLng)) {
+      alert("Please provide valid 'To' location coordinates");
+      return;
     }
 
     setIsPredictingETA(true);
@@ -419,7 +461,7 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
 
     } catch (error) {
       console.error("ETA prediction error:", error);
-      alert("Failed to predict ETA. Please check the console for details and ensure the prediction API is running.");
+      alert("Failed to predict ETA. Please check the console for details.");
     } finally {
       setIsPredictingETA(false);
     }
@@ -592,7 +634,9 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
 
     if (parcel.warehouseId) {
       updates.fromLocationType = "warehouse";
-      updates.fromWarehouseId = parcel.warehouseId._id || parcel.warehouseId;
+      const warehouseId = parcel.warehouseId._id || parcel.warehouseId;
+      updates.fromWarehouseId = warehouseId;
+      handleFromWarehouseChange(warehouseId);
     }
 
     if (parcel.receiver?.address) {
@@ -627,7 +671,9 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
 
     if (consolidation.warehouseId) {
       updates.fromLocationType = "warehouse";
-      updates.fromWarehouseId = consolidation.warehouseId._id || consolidation.warehouseId;
+      const warehouseId = consolidation.warehouseId._id || consolidation.warehouseId;
+      updates.fromWarehouseId = warehouseId;
+      handleFromWarehouseChange(warehouseId);
     }
 
     if (consolidation.parcels && consolidation.parcels.length > 0) {
@@ -683,7 +729,6 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
   const handleCreateDelivery = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validate route
     const routeValidation = validateDeliveryRoute();
     if (!routeValidation.isValid) {
       alert(routeValidation.message);
@@ -1215,7 +1260,7 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
                   <div>
                     <p className="text-red-400 font-medium">Invalid Route Configuration</p>
                     <p className="text-red-300 text-sm mt-1">
-                      Direct address-to-address delivery is not allowed. Please select at least one warehouse location (either From or To).
+                      Direct address-to-address delivery is not allowed. Please select at least one warehouse location.
                     </p>
                   </div>
                 </div>
@@ -1391,22 +1436,35 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
                 </div>
 
                 {formData.fromLocationType === 'warehouse' ? (
-                  <div>
-                    <label className="block text-gray-400 text-sm mb-2">Select Warehouse *</label>
-                    <select
-                      required
-                      value={formData.fromWarehouseId}
-                      onChange={(e) => setFormData({ ...formData, fromWarehouseId: e.target.value })}
-                      className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">Select a warehouse</option>
-                      {warehouses.map((warehouse) => (
-                        <option key={warehouse._id} value={warehouse._id}>
-                          {warehouse.name} ({warehouse.code})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  <>
+                    <div>
+                      <label className="block text-gray-400 text-sm mb-2">Select Warehouse *</label>
+                      <select
+                        required
+                        value={formData.fromWarehouseId}
+                        onChange={(e) => handleFromWarehouseChange(e.target.value)}
+                        className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">Select a warehouse</option>
+                        {warehouses.map((warehouse) => (
+                          <option key={warehouse._id} value={warehouse._id}>
+                            {warehouse.name} ({warehouse.code})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    {formData.fromWarehouseId && formData.fromAddress && (
+                      <div className="bg-gray-900 rounded-lg p-4 border border-gray-700">
+                        <p className="text-gray-400 text-sm mb-2">Warehouse Address</p>
+                        <p className="text-white text-sm">{formData.fromAddress}</p>
+                        {formData.fromLatitude && formData.fromLongitude && (
+                          <p className="text-gray-400 text-xs mt-2">
+                            Coordinates: {formData.fromLatitude}, {formData.fromLongitude}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </>
                 ) : (
                   <>
                     <div>
@@ -1434,7 +1492,7 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
                           ) : (
                             <>
                               <Navigation className="w-4 h-4" />
-                              Get Coordinates
+                              Get Coords
                             </>
                           )}
                         </button>
@@ -1516,22 +1574,35 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
                 </div>
 
                 {formData.toLocationType === 'warehouse' ? (
-                  <div>
-                    <label className="block text-gray-400 text-sm mb-2">Select Warehouse *</label>
-                    <select
-                      required
-                      value={formData.toWarehouseId}
-                      onChange={(e) => setFormData({ ...formData, toWarehouseId: e.target.value })}
-                      className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">Select a warehouse</option>
-                      {warehouses.map((warehouse) => (
-                        <option key={warehouse._id} value={warehouse._id}>
-                          {warehouse.name} ({warehouse.code})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  <>
+                    <div>
+                      <label className="block text-gray-400 text-sm mb-2">Select Warehouse *</label>
+                      <select
+                        required
+                        value={formData.toWarehouseId}
+                        onChange={(e) => handleToWarehouseChange(e.target.value)}
+                        className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">Select a warehouse</option>
+                        {warehouses.map((warehouse) => (
+                          <option key={warehouse._id} value={warehouse._id}>
+                            {warehouse.name} ({warehouse.code})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    {formData.toWarehouseId && formData.toAddress && (
+                      <div className="bg-gray-900 rounded-lg p-4 border border-gray-700">
+                        <p className="text-gray-400 text-sm mb-2">Warehouse Address</p>
+                        <p className="text-white text-sm">{formData.toAddress}</p>
+                        {formData.toLatitude && formData.toLongitude && (
+                          <p className="text-gray-400 text-xs mt-2">
+                            Coordinates: {formData.toLatitude}, {formData.toLongitude}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </>
                 ) : (
                   <>
                     <div>
@@ -1559,7 +1630,7 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
                           ) : (
                             <>
                               <Navigation className="w-4 h-4" />
-                              Get Coordinates
+                              Get Coords
                             </>
                           )}
                         </button>
@@ -1620,7 +1691,7 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
                   <button
                     type="button"
                     onClick={predictETA}
-                    disabled={isPredictingETA || (formData.fromLocationType === 'address' && formData.toLocationType === 'address')}
+                    disabled={isPredictingETA || (formData.fromLocationType === 'address' && formData.toLocationType === 'address') || !formData.fromLatitude || !formData.fromLongitude || !formData.toLatitude || !formData.toLongitude}
                     className="px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-all flex items-center gap-2 shadow-lg"
                   >
                     {isPredictingETA ? (

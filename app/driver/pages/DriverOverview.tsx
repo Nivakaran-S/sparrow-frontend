@@ -81,7 +81,6 @@ const DriverOverview = ({ userId, setActiveTab }: { userId?: string; setActiveTa
     todayDeliveries: 0,
     distanceTraveled: 0,
     todayEarnings: 0,
-    rating: 4.8,
     weeklyDeliveries: 0,
     monthlyDeliveries: 0,
     successRate: 0,
@@ -288,7 +287,6 @@ const DriverOverview = ({ userId, setActiveTab }: { userId?: string; setActiveTa
       todayDeliveries: todayDeliveries.length,
       distanceTraveled: Math.round(totalDistance * 10) / 10,
       todayEarnings: Math.round(todayEarnings * 100) / 100,
-      rating: 4.8,
       weeklyDeliveries: weekDeliveries.length,
       monthlyDeliveries: monthDeliveries.length,
       successRate: Math.round(successRate * 10) / 10,
@@ -488,15 +486,6 @@ const DriverOverview = ({ userId, setActiveTab }: { userId?: string; setActiveTa
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-4 flex items-center gap-4 hover:-translate-y-1 hover:border-blue-400 hover:shadow-lg transition-all">
-          <div className="bg-purple-500/20 rounded-full w-12 h-12 flex items-center justify-center">
-            <Star className="w-6 h-6 text-purple-400 fill-purple-400" />
-          </div>
-          <div>
-            <h3 className="text-2xl font-bold text-white">{stats.rating}/5</h3>
-            <p className="text-gray-400 text-sm">Rating</p>
-          </div>
-        </div>
       </div>
 
       {/* Current Delivery */}
