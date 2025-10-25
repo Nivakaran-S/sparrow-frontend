@@ -71,7 +71,6 @@ const Earnings = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (t
   const [driverId, setDriverId] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [commissionWarning, setCommissionWarning] = useState(false);
 
   useEffect(() => {
     checkAuth();
@@ -123,7 +122,6 @@ const Earnings = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (t
     try {
       setError(null);
 
-    
       const url = `${API_BASE_URL}/api/parcels/api/earnings/driver/${driverId}`;
       console.log("📡 Fetching earnings from:", url);
 
@@ -134,7 +132,6 @@ const Earnings = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (t
       console.log("📊 Earnings response status:", response.status);
 
       if (!response.ok) {
-        // Check if it's a 404 (no earnings yet)
         if (response.status === 404) {
           console.log("ℹ️ No earnings found (404)");
           setEarnings([]);
@@ -156,14 +153,6 @@ const Earnings = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (t
         console.log(`✅ Found ${earningsData.length} earnings records`);
         setEarnings(earningsData);
         calculatePeriodStats(earningsData);
-        
-        // Check if any earnings have 0% commission rate (warning sign)
-        const hasZeroCommission = earningsData.some((e: EarningRecord) => e.commissionRate === 0);
-        setCommissionWarning(hasZeroCommission);
-        
-        if (hasZeroCommission) {
-          console.warn("⚠️ Some earnings have 0% commission rate");
-        }
       } else {
         console.log("ℹ️ No earnings data in response");
         setEarnings([]);
@@ -171,7 +160,6 @@ const Earnings = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (t
       }
     } catch (err: any) {
       console.error("❌ Error fetching earnings:", err);
-      // Only show error for non-404 errors
       if (err.message !== "Failed to fetch earnings") {
         setError(err.message);
       }
@@ -186,7 +174,6 @@ const Earnings = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (t
     if (!driverId) return;
 
     try {
-      // ✅ FIXED: Match the same URL pattern as CurrentDeliveries.tsx
       const url = `${API_BASE_URL}/api/parcels/api/earnings/driver/${driverId}/summary`;
       console.log("📡 Fetching summary from:", url);
 
@@ -197,7 +184,6 @@ const Earnings = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (t
       console.log("📊 Summary response status:", response.status);
 
       if (!response.ok) {
-        // If 404, just set empty summary
         if (response.status === 404) {
           console.log("ℹ️ No summary found (404)");
           setSummary(null);
@@ -349,21 +335,6 @@ const Earnings = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (t
           Refresh
         </button>
       </div>
-
-      {/* Commission Warning */}
-      {commissionWarning && (
-        <div className="mb-6 bg-yellow-500/10 border border-yellow-500 rounded-lg p-4 flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="text-yellow-400 font-semibold mb-1">Commission Settings Issue</p>
-            <p className="text-gray-300 text-sm">
-              Some of your earnings show 0% commission rate. This means commission settings may not be properly configured. 
-              Please contact your administrator to initialize commission settings by calling the endpoint:
-              <code className="bg-gray-800 px-2 py-1 rounded ml-1">POST /api/commission-settings/initialize</code>
-            </p>
-          </div>
-        </div>
-      )}
 
       {/* Error Message */}
       {error && (
@@ -593,13 +564,8 @@ const Earnings = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (t
                       </div>
                     </div>
                     <div>
-                      <div className="text-gray-500 text-xs">
-                        Commission 
-                        {earning.commissionRate === 0 && (
-                          <span className="ml-1 text-yellow-400">⚠️</span>
-                        )}
-                      </div>
-                      <div className={`text-sm font-semibold ${earning.commissionRate === 0 ? 'text-yellow-400' : 'text-blue-400'}`}>
+                      <div className="text-gray-500 text-xs">Commission</div>
+                      <div className="text-blue-400 text-sm font-semibold">
                         {earning.commissionRate}% = Rs. {earning.commissionAmount.toFixed(2)}
                       </div>
                     </div>
@@ -683,7 +649,7 @@ const Earnings = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (t
               calculated from distance, weight, and delivery type. You earn a commission percentage (set by admin) 
               on this base amount. Urgent deliveries may include additional bonuses. Earnings are typically approved 
               automatically and paid weekly to your registered bank account. Contact admin if you have questions 
-              about your earnings or if you see 0% commission rates.
+              about your earnings.
             </p>
           </div>
         </div>

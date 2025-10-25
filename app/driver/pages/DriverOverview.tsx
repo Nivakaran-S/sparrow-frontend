@@ -61,22 +61,26 @@ interface Delivery {
   statusHistory?: any[];
 }
 
-interface DriverPricing {
+interface EarningRecord {
   _id: string;
-  parcelType: string;
-  driverBaseEarning: number;
-  driverEarningPerKm: number;
-  driverEarningPerKg: number;
-  urgentDeliveryBonus: number;
-  commissionPercentage: number;
-  isActive: boolean;
+  driver: any;
+  delivery: Delivery;
+  baseAmount: number;
+  commissionRate: number;
+  commissionAmount: number;
+  bonusAmount: number;
+  deductions: number;
+  totalEarnings: number;
+  status: string;
+  deliveryCompletedAt: string;
+  paidAt?: string;
+  createdTimestamp: string;
 }
 
 const DriverOverview = ({ userId, setActiveTab }: { userId?: string; setActiveTab?: (tab: string) => void }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [driverId, setDriverId] = useState<string | null>(null);
-  const [driverPricings, setDriverPricings] = useState<DriverPricing[]>([]);
   const [stats, setStats] = useState({
     todayDeliveries: 0,
     distanceTraveled: 0,
@@ -126,30 +130,7 @@ const DriverOverview = ({ userId, setActiveTab }: { userId?: string; setActiveTa
   };
 
   const fetchAllData = async () => {
-    await Promise.all([fetchDriverPricings(), fetchDriverData()]);
-  };
-
-  const fetchDriverPricings = async () => {
-    try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/pricing/api/pricing-driver?isActive=true`,
-        { credentials: "include" }
-      );
-
-      if (!response.ok) throw new Error("Failed to fetch driver pricing");
-
-      const data = await response.json();
-
-      if (data.success) {
-        setDriverPricings(data.data || []);
-      }
-    } catch (err: any) {
-      console.error("Error fetching driver pricings:", err);
-    }
-  };
-
-  const getDriverPricingForParcel = (parcelType: string): DriverPricing | null => {
-    return driverPricings.find(dp => dp.parcelType === parcelType) || null;
+    await Promise.all([fetchDriverData(), fetchEarningsData()]);
   };
 
   const fetchDriverData = async () => {
@@ -184,8 +165,8 @@ const DriverOverview = ({ userId, setActiveTab }: { userId?: string; setActiveTa
       ) || active[0];
       setCurrentDelivery(current || null);
 
-      // Calculate stats
-      calculateStats(allDeliveries);
+      // Calculate delivery stats (without earnings)
+      calculateDeliveryStats(allDeliveries);
     } catch (err: any) {
       console.error('Error fetching driver data:', err);
       setError(err.message);
@@ -194,21 +175,44 @@ const DriverOverview = ({ userId, setActiveTab }: { userId?: string; setActiveTa
     }
   };
 
-  const calculateStats = (allDeliveries: Delivery[]) => {
+  const fetchEarningsData = async () => {
+    if (!driverId) return;
+
+    try {
+      // Fetch earnings from Earnings database
+      const earningsResponse = await fetch(
+        `${API_BASE_URL}/api/parcels/api/earnings/driver/${driverId}`,
+        { credentials: 'include' }
+      );
+
+      if (earningsResponse.ok) {
+        const earningsData = await earningsResponse.json();
+        if (earningsData.success && earningsData.data) {
+          calculateEarningsStats(earningsData.data);
+        }
+      }
+    } catch (err: any) {
+      console.error('Error fetching earnings data:', err);
+    }
+  };
+
+  const calculateDeliveryStats = (allDeliveries: Delivery[]) => {
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const weekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
     // Filter deliveries by date
-    const todayDeliveries = allDeliveries.filter(
-      (d) => new Date(d.createdTimestamp) >= todayStart && d.status === "delivered"
+    const completedDeliveries = allDeliveries.filter((d) => d.status === "delivered");
+    
+    const todayDeliveries = completedDeliveries.filter(
+      (d) => new Date(d.actualDeliveryTime || d.updatedTimestamp || d.createdTimestamp) >= todayStart
     );
-    const weekDeliveries = allDeliveries.filter(
-      (d) => new Date(d.createdTimestamp) >= weekStart && d.status === "delivered"
+    const weekDeliveries = completedDeliveries.filter(
+      (d) => new Date(d.actualDeliveryTime || d.updatedTimestamp || d.createdTimestamp) >= weekStart
     );
-    const monthDeliveries = allDeliveries.filter(
-      (d) => new Date(d.createdTimestamp) >= monthStart && d.status === "delivered"
+    const monthDeliveries = completedDeliveries.filter(
+      (d) => new Date(d.actualDeliveryTime || d.updatedTimestamp || d.createdTimestamp) >= monthStart
     );
 
     // Calculate distance traveled today
@@ -235,41 +239,11 @@ const DriverOverview = ({ userId, setActiveTab }: { userId?: string; setActiveTa
       totalDistance = todayDeliveries.length * 5;
     }
 
-    // Calculate earnings for today
-    let todayEarnings = 0;
-    todayDeliveries.forEach((delivery) => {
-      const items = delivery.deliveryItemType === "consolidation"
-        ? delivery.consolidation?.parcels || []
-        : delivery.parcels || [];
-
-      const deliveryDistance = totalDistance / todayDeliveries.length;
-
-      items.forEach((item: Parcel) => {
-        const pricingType = item.pricingId?.parcelType || "Standard";
-        const driverPricing = getDriverPricingForParcel(pricingType);
-
-        if (driverPricing) {
-          const weight = item.weight?.value || 0;
-          
-          let itemEarnings = driverPricing.driverBaseEarning;
-          itemEarnings += (deliveryDistance / items.length) * driverPricing.driverEarningPerKm;
-          itemEarnings += weight * driverPricing.driverEarningPerKg;
-          
-          if (delivery.priority === "urgent" && driverPricing.urgentDeliveryBonus > 0) {
-            itemEarnings += driverPricing.urgentDeliveryBonus;
-          }
-
-          todayEarnings += itemEarnings;
-        }
-      });
-    });
-
     // Calculate success rate and average time
-    const completedDeliveries = allDeliveries.filter((d) => d.status === "delivered");
-    const successRate =
-      allDeliveries.length > 0
-        ? (completedDeliveries.length / allDeliveries.length) * 100
-        : 0;
+    const totalDeliveries = allDeliveries.length;
+    const successRate = totalDeliveries > 0
+      ? (completedDeliveries.length / totalDeliveries) * 100
+      : 0;
 
     let totalTime = 0;
     let countWithTime = 0;
@@ -283,15 +257,30 @@ const DriverOverview = ({ userId, setActiveTab }: { userId?: string; setActiveTa
     });
     const avgTime = countWithTime > 0 ? totalTime / countWithTime : 0;
 
-    setStats({
+    setStats(prev => ({
+      ...prev,
       todayDeliveries: todayDeliveries.length,
       distanceTraveled: Math.round(totalDistance * 10) / 10,
-      todayEarnings: Math.round(todayEarnings * 100) / 100,
       weeklyDeliveries: weekDeliveries.length,
       monthlyDeliveries: monthDeliveries.length,
       successRate: Math.round(successRate * 10) / 10,
       avgTimePerStop: Math.round(avgTime),
-    });
+    }));
+  };
+
+  const calculateEarningsStats = (earnings: EarningRecord[]) => {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    // Calculate today's earnings from Earnings database
+    const todayEarnings = earnings
+      .filter(e => new Date(e.deliveryCompletedAt) >= todayStart)
+      .reduce((sum, e) => sum + e.totalEarnings, 0);
+
+    setStats(prev => ({
+      ...prev,
+      todayEarnings: Math.round(todayEarnings * 100) / 100,
+    }));
   };
 
   const calculateDistance = (
@@ -486,6 +475,15 @@ const DriverOverview = ({ userId, setActiveTab }: { userId?: string; setActiveTa
           </div>
         </div>
 
+        <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-4 flex items-center gap-4 hover:-translate-y-1 hover:border-blue-400 hover:shadow-lg transition-all">
+          <div className="bg-purple-500/20 rounded-full w-12 h-12 flex items-center justify-center">
+            <Star className="w-6 h-6 text-purple-400" />
+          </div>
+          <div>
+            <h3 className="text-2xl font-bold text-white">{stats.successRate}%</h3>
+            <p className="text-gray-400 text-sm">Success Rate</p>
+          </div>
+        </div>
       </div>
 
       {/* Current Delivery */}
@@ -511,7 +509,7 @@ const DriverOverview = ({ userId, setActiveTab }: { userId?: string; setActiveTa
               <div className="flex gap-2">
                 <button
                   className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 hover:-translate-y-1 transition-all cursor-pointer"
-                  onClick={() => setActiveTab && setActiveTab('Current Deliveries')}
+                  onClick={() => setActiveTab && setActiveTab('current')}
                 >
                   View Details
                 </button>
@@ -550,7 +548,7 @@ const DriverOverview = ({ userId, setActiveTab }: { userId?: string; setActiveTa
             You have {activeDeliveries.length} delivery assignment(s) waiting to be started.
           </p>
           <button
-            onClick={() => setActiveTab && setActiveTab('Current Deliveries')}
+            onClick={() => setActiveTab && setActiveTab('current')}
             className="bg-blue-600 cursor-pointer text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-all"
           >
             View Deliveries
