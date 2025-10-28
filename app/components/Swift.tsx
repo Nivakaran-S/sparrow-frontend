@@ -27,8 +27,8 @@ const Swift = () => {
 const sendMessage = async (message: string) => {
   try {
     const response = await axios.post(
-      //"http://192.168.8.101:7860/chat",
-       "https://nivakaran-sparrowagenticai.hf.space/chat",
+      //"http://192.168.8.100:7860/chat",
+       "https://nivakaran-sparrowagentnew.hf.space/chat",
       {
         message: message, 
       },
@@ -37,7 +37,7 @@ const sendMessage = async (message: string) => {
           "Content-Type": "application/json",
         },
         withCredentials: true,
-        timeout: 100000,
+        timeout: 5000000,
       }
     );
 
@@ -211,8 +211,9 @@ const sendMessage = async (message: string) => {
               ))}
             {typing ? (
               <div className="flex h-[80px] py-[10px] justify-start mb-3 px-5">
-                <div className="rounded-lg p-3 flex items-center">
+                <div className="rounded-lg p-3 flex flex-col ">
                   <span className="loader"></span>
+                  <p className="text-white">Pondering on it, please wait..</p>
                 </div>
               </div>
             ) : null}
