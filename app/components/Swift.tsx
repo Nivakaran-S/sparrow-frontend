@@ -27,20 +27,20 @@ const Swift = () => {
 const sendMessage = async (message: string) => {
   try {
     const response = await axios.post(
-      //"http://localhost:5000/chat",
+      //"http://192.168.8.101:7860/chat",
        "https://nivakaran-sparrowagenticai.hf.space/chat",
       {
-        message: message, // ✅ backend expects this key
+        message: message, 
       },
       {
         headers: {
           "Content-Type": "application/json",
         },
+        withCredentials: true,
         timeout: 100000,
       }
     );
 
-    // ✅ Backend responds with JSON { success, response, thread_id }
     const data = response.data;
     if (data.success) {
       return {
