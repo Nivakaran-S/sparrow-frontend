@@ -56,9 +56,10 @@ interface PerformanceMetrics {
 
 interface PerformanceReportsProps {
   userId?: string;
+  setActiveTab?: (tab: string) => void;
 }
 
-export default function PerformanceReports({ userId, setActiveTab }: { userId?: PerformanceReportsProps; setActiveTab?: (tab: string) => void }) {
+export default function PerformanceReports({ userId, setActiveTab }: PerformanceReportsProps) {
   const [metrics, setMetrics] = useState<PerformanceMetrics>({
     parcelsProcessed: 0,
     avgProcessingTime: 0,
@@ -82,7 +83,7 @@ export default function PerformanceReports({ userId, setActiveTab }: { userId?: 
   const fetchMetrics = async () => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
       const days = parseInt(dateRange);
       const startDate = new Date();
@@ -103,7 +104,7 @@ export default function PerformanceReports({ userId, setActiveTab }: { userId?: 
       const parcelsData = await parcelsRes.json();
       const consolidationsData = await consolidationsRes.json();
       const warehousesData = await warehousesRes.json();
-      
+
       let deliveriesData: any = [];
       if (deliveriesRes.ok) {
         deliveriesData = await deliveriesRes.json();
@@ -122,27 +123,27 @@ export default function PerformanceReports({ userId, setActiveTab }: { userId?: 
       });
 
       // Calculate parcels processed (not in 'created' status)
-      const parcelsProcessed = filteredParcels.filter((p) => 
+      const parcelsProcessed = filteredParcels.filter((p) =>
         p.status !== 'created'
       ).length;
 
       // Calculate average processing time
       let totalProcessingTime = 0;
       let processedCount = 0;
-      
+
       filteredParcels.forEach((p) => {
         if (p.statusHistory && p.statusHistory.length > 1) {
           const created = new Date(p.statusHistory[0].timestamp);
           const lastUpdate = new Date(p.statusHistory[p.statusHistory.length - 1].timestamp);
           const processingHours = (lastUpdate.getTime() - created.getTime()) / (1000 * 60 * 60);
-          
+
           if (processingHours > 0) {
             totalProcessingTime += processingHours;
             processedCount++;
           }
         }
       });
-      
+
       const avgProcessingTime = processedCount > 0 ? totalProcessingTime / processedCount : 0;
 
       // Calculate consolidation rate
@@ -150,15 +151,15 @@ export default function PerformanceReports({ userId, setActiveTab }: { userId?: 
         const createdDate = new Date(c.createdTimestamp);
         return createdDate >= startDate;
       });
-      
-      const consolidationRate = filteredParcels.length > 0 
-        ? (filteredConsolidations.length / filteredParcels.length) * 100 
+
+      const consolidationRate = filteredParcels.length > 0
+        ? (filteredConsolidations.length / filteredParcels.length) * 100
         : 0;
 
       // Calculate warehouse utilization
       let totalCapacity = 0;
       let totalUsed = 0;
-      
+
       warehouses.forEach((w) => {
         if (w.capacity?.parcels) {
           totalCapacity += w.capacity.parcels;
@@ -166,15 +167,15 @@ export default function PerformanceReports({ userId, setActiveTab }: { userId?: 
           totalUsed += usedParcels;
         }
       });
-      
-      const warehouseUtilization = totalCapacity > 0 
-        ? (totalUsed / totalCapacity) * 100 
+
+      const warehouseUtilization = totalCapacity > 0
+        ? (totalUsed / totalCapacity) * 100
         : 0;
 
       // Calculate route efficiency based on completed deliveries
       const completedDeliveries = deliveries.filter((d: Delivery) => d.status === 'completed');
       let routeEfficiency = 85; // Default value
-      
+
       if (completedDeliveries.length > 0) {
         const onTimeDeliveries = completedDeliveries.filter((d: Delivery) => {
           if (d.estimatedDeliveryTime && d.actualDeliveryTime) {
@@ -182,43 +183,43 @@ export default function PerformanceReports({ userId, setActiveTab }: { userId?: 
           }
           return true; // Count as on-time if no estimate
         }).length;
-        
+
         routeEfficiency = (onTimeDeliveries / completedDeliveries.length) * 100;
       }
 
       // Calculate trends (compare with previous period)
       const prevStartDate = new Date(startDate);
       prevStartDate.setDate(prevStartDate.getDate() - days);
-      
+
       const prevParcels = parcels.filter((p) => {
         const date = new Date(p.createdTimeStamp);
         return date >= prevStartDate && date < startDate;
       });
 
       const prevProcessed = prevParcels.filter((p) => p.status !== 'created').length;
-      const parcelsChange = prevProcessed > 0 
-        ? ((parcelsProcessed - prevProcessed) / prevProcessed) * 100 
+      const parcelsChange = prevProcessed > 0
+        ? ((parcelsProcessed - prevProcessed) / prevProcessed) * 100
         : parcelsProcessed > 0 ? 100 : 0;
 
       // Calculate processing time change
       let prevTotalProcessingTime = 0;
       let prevProcessedCount = 0;
-      
+
       prevParcels.forEach((p) => {
         if (p.statusHistory && p.statusHistory.length > 1) {
           const created = new Date(p.statusHistory[0].timestamp);
           const lastUpdate = new Date(p.statusHistory[p.statusHistory.length - 1].timestamp);
           const processingHours = (lastUpdate.getTime() - created.getTime()) / (1000 * 60 * 60);
-          
+
           if (processingHours > 0) {
             prevTotalProcessingTime += processingHours;
             prevProcessedCount++;
           }
         }
       });
-      
+
       const prevAvgProcessingTime = prevProcessedCount > 0 ? prevTotalProcessingTime / prevProcessedCount : 0;
-      const processingChange = prevAvgProcessingTime > 0 
+      const processingChange = prevAvgProcessingTime > 0
         ? avgProcessingTime - prevAvgProcessingTime
         : 0;
 
@@ -227,7 +228,7 @@ export default function PerformanceReports({ userId, setActiveTab }: { userId?: 
         const date = new Date(d.createdTimestamp);
         return date >= prevStartDate && date < startDate && d.status === 'completed';
       });
-      
+
       let prevRouteEfficiency = 85;
       if (prevDeliveries.length > 0) {
         const prevOnTime = prevDeliveries.filter((d: Delivery) => {
@@ -238,7 +239,7 @@ export default function PerformanceReports({ userId, setActiveTab }: { userId?: 
         }).length;
         prevRouteEfficiency = (prevOnTime / prevDeliveries.length) * 100;
       }
-      
+
       const efficiencyChange = routeEfficiency - prevRouteEfficiency;
 
       setMetrics({
@@ -255,7 +256,7 @@ export default function PerformanceReports({ userId, setActiveTab }: { userId?: 
       });
     } catch (error) {
       console.error("Error fetching metrics:", error);
-      
+
     } finally {
       setIsLoading(false);
     }
@@ -296,7 +297,7 @@ export default function PerformanceReports({ userId, setActiveTab }: { userId?: 
 
       <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6">
         <div className="flex flex-wrap gap-4 items-center mb-6">
-          <select 
+          <select
             value={dateRange}
             onChange={(e) => setDateRange(e.target.value)}
             className="px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none"
@@ -305,7 +306,7 @@ export default function PerformanceReports({ userId, setActiveTab }: { userId?: 
             <option value="30">Last 30 Days</option>
             <option value="90">Last 3 Months</option>
           </select>
-          <button 
+          <button
             onClick={fetchMetrics}
             disabled={isLoading}
             className="bg-gradient-to-r cursor-pointer from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-6 py-2 rounded-lg font-medium transition-all hover:-translate-y-1 shadow-lg shadow-blue-600/30 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -364,7 +365,7 @@ export default function PerformanceReports({ userId, setActiveTab }: { userId?: 
                 </div>
               </div>
 
-              
+
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
@@ -397,7 +398,7 @@ export default function PerformanceReports({ userId, setActiveTab }: { userId?: 
               <div className="bg-gray-900 border border-gray-700 rounded-lg p-4 transition-all hover:border-blue-500">
                 <h3 className="text-white font-semibold mb-2">Daily Operations Report</h3>
                 <p className="text-gray-400 text-sm mb-4">Comprehensive daily activity summary</p>
-                <button 
+                <button
                   onClick={() => downloadReport('daily-operations')}
                   className="px-4 cursor-pointer py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-medium transition-colors flex items-center gap-2"
                 >
@@ -409,7 +410,7 @@ export default function PerformanceReports({ userId, setActiveTab }: { userId?: 
               <div className="bg-gray-900 border border-gray-700 rounded-lg p-4 transition-all hover:border-blue-500">
                 <h3 className="text-white font-semibold mb-2">Efficiency Analysis</h3>
                 <p className="text-gray-400 text-sm mb-4">Route and processing efficiency metrics</p>
-                <button 
+                <button
                   onClick={() => downloadReport('efficiency-analysis')}
                   className="px-4 cursor-pointer py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-medium transition-colors flex items-center gap-2"
                 >
@@ -421,7 +422,7 @@ export default function PerformanceReports({ userId, setActiveTab }: { userId?: 
               <div className="bg-gray-900 border border-gray-700 rounded-lg p-4 transition-all hover:border-blue-500">
                 <h3 className="text-white font-semibold mb-2">Performance Analytics</h3>
                 <p className="text-gray-400 text-sm mb-4">KPI trends and operational insights</p>
-                <button 
+                <button
                   onClick={() => downloadReport('performance-analytics')}
                   className="px-4 cursor-pointer py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-medium transition-colors flex items-center gap-2"
                 >

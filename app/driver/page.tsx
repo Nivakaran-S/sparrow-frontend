@@ -12,13 +12,14 @@ import MyRoutes from "./pages/MyRoutes";
 import DriverOverview from "./pages/DriverOverview";
 import PerformanceAnalytics from "./pages/PerformanceAnalytics";
 import DriverProfile from "./pages/DriverProfile";
+import { User } from "../types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api-gateway-nine-orpin.vercel.app";
 
 
 export default function DriverDashboard() {
   const [activeTab, setActiveTab] = useState("overview");
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [isOnline, setIsOnline] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();

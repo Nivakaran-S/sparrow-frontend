@@ -3,18 +3,31 @@ import { useState, useEffect } from "react";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api-gateway-nine-orpin.vercel.app";
 
-interface TrackShipmentsProps {
+interface MyParcelsProps {
   setActiveTab?: (tab: string) => void;
 }
 
+interface ParcelItem {
+  _id: string;
+  trackingNumber: string;
+  status: string;
+  createdTimeStamp: string;
+  weight?: { value: number; unit: string };
+  dimensions?: { length: number; width: number; height: number; unit: string };
+  pricingId?: { parcelType: string; basePrice: number; pricePerKm: number; pricePerKg: number };
+  sender?: { name: string; phoneNumber: string; email: string; address: string };
+  receiver?: { name: string; phoneNumber: string; email: string; address: string };
+  assignedDriver?: { userName: string };
+  statusHistory?: Array<{ status: string; note?: string; timestamp: string; location?: string; service?: string }>;
+}
 
-const MyParcels = ({ setActiveTab }: TrackShipmentsProps) => {
-  const [parcels, setParcels] = useState<any[]>([]);
-  const [filteredParcels, setFilteredParcels] = useState<any[]>([]);
+const MyParcels = ({ setActiveTab }: MyParcelsProps) => {
+  const [parcels, setParcels] = useState<ParcelItem[]>([]);
+  const [filteredParcels, setFilteredParcels] = useState<ParcelItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedParcel, setSelectedParcel] = useState<any>(null);
+  const [selectedParcel, setSelectedParcel] = useState<ParcelItem | null>(null);
   const [showDetails, setShowDetails] = useState(false);
 
   useEffect(() => {
@@ -30,7 +43,7 @@ const MyParcels = ({ setActiveTab }: TrackShipmentsProps) => {
       const response = await fetch(`${API_BASE_URL}/api/parcels/api/parcels`, {
         credentials: 'include',
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         setParcels(data.data || []);
@@ -50,7 +63,7 @@ const MyParcels = ({ setActiveTab }: TrackShipmentsProps) => {
     }
 
     if (searchQuery) {
-      filtered = filtered.filter(p => 
+      filtered = filtered.filter(p =>
         p.trackingNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
         p.receiver?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         p.pricingId?.parcelType?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -75,7 +88,7 @@ const MyParcels = ({ setActiveTab }: TrackShipmentsProps) => {
   };
 
   const getStatusLabel = (status: string) => {
-    return status.split('_').map(word => 
+    return status.split('_').map(word =>
       word.charAt(0).toUpperCase() + word.slice(1)
     ).join(' ');
   };

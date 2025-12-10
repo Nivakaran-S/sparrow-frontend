@@ -15,12 +15,13 @@ import LiveTracking from "./pages/LiveTracking";
 import SwiftScreen from "./pages/SwiftScreen";
 import StaffProfile from "./pages/StaffProfile";
 import DeliveryManagement from "./pages/DeliveryManagement";
+import { User } from "../types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api-gateway-nine-orpin.vercel.app";
 
 export default function StaffDashboard() {
   const [activeTab, setActiveTab] = useState("overview");
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 

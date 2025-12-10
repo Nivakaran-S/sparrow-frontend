@@ -1,4 +1,5 @@
 "use client";
+
 import { useState, useEffect } from "react";
 import { 
   Truck, 
@@ -380,19 +381,18 @@ export default function DeliveryManagement({ userId, setActiveTab }: { userId?: 
       return;
     }
 
-    let fromLat: number, fromLng: number, toLat: number, toLng: number;
-
-    // Get FROM coordinates
-    fromLat = parseFloat(formData.fromLatitude);
-    fromLng = parseFloat(formData.fromLongitude);
+    // Fixed variable declarations here
+    const fromLat = parseFloat(formData.fromLatitude);
+    const fromLng = parseFloat(formData.fromLongitude);
+    
     if (isNaN(fromLat) || isNaN(fromLng)) {
       alert("Please provide valid 'From' location coordinates");
       return;
     }
 
-    // Get TO coordinates
-    toLat = parseFloat(formData.toLatitude);
-    toLng = parseFloat(formData.toLongitude);
+    const toLat = parseFloat(formData.toLatitude);
+    const toLng = parseFloat(formData.toLongitude);
+    
     if (isNaN(toLat) || isNaN(toLng)) {
       alert("Please provide valid 'To' location coordinates");
       return;

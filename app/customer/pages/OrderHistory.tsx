@@ -3,15 +3,25 @@ import { useState, useEffect } from "react";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api-gateway-nine-orpin.vercel.app/api/parcels";
 
-interface TrackShipmentsProps {
+interface OrderHistoryProps {
   setActiveTab?: (tab: string) => void;
 }
 
+interface OrderItem {
+  _id: string;
+  trackingNumber: string;
+  status: string;
+  createdTimeStamp: string;
+  weight?: { value: number; unit: string };
+  sender?: { name: string; phoneNumber: string; email: string; address: string };
+  receiver?: { name: string; phoneNumber: string; email: string; address: string };
+  statusHistory?: Array<{ status: string; note?: string; timestamp: string }>;
+}
 
-const OrderHistory = ({ setActiveTab }: TrackShipmentsProps) => {
-  const [orders, setOrders] = useState<any[]>([]);
+const OrderHistory = ({ setActiveTab }: OrderHistoryProps) => {
+  const [orders, setOrders] = useState<OrderItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedOrder, setSelectedOrder] = useState<any>(null);
+  const [selectedOrder, setSelectedOrder] = useState<OrderItem | null>(null);
   const [showDetails, setShowDetails] = useState(false);
   const [filterStatus, setFilterStatus] = useState("all");
   const [sortBy, setSortBy] = useState("date");

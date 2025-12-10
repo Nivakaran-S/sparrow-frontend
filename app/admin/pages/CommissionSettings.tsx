@@ -23,7 +23,7 @@ const DELIVERY_TYPES = [
   { value: 'warehouse_to_address', label: 'Warehouse → Address', icon: '🚚' }
 ];
 
-const CommissionSettings = () => {
+const CommissionSettings = ({setActiveTab }: { setActiveTab?: (tab: string) => void }) => {
   const [settings, setSettings] = useState<CommissionSetting[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

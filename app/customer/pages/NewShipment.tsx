@@ -13,20 +13,24 @@ interface PricingType {
   isActive: boolean;
 }
 
-interface TrackShipmentsProps {
+interface NewShipmentProps {
   setActiveTab?: (tab: string) => void;
 }
 
+interface CreatedParcel {
+  _id: string;
+  trackingNumber: string;
+}
 
-const NewShipment = ({ setActiveTab }: TrackShipmentsProps) => {
+const NewShipment = ({ setActiveTab }: NewShipmentProps) => {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [createdParcel, setCreatedParcel] = useState<any>(null);
+  const [createdParcel, setCreatedParcel] = useState<CreatedParcel | null>(null);
   const [paymentProcessing, setPaymentProcessing] = useState(false);
   const [pricingTypes, setPricingTypes] = useState<PricingType[]>([]);
   const [loadingPricing, setLoadingPricing] = useState(true);
   const [calculatedPrice, setCalculatedPrice] = useState<number>(0);
-  
+
   const [shipmentData, setShipmentData] = useState({
     senderName: "",
     senderPhone: "",
@@ -66,7 +70,7 @@ const NewShipment = ({ setActiveTab }: TrackShipmentsProps) => {
       const response = await fetch(`${API_BASE_URL}/api/pricing/api/pricing?isActive=true`, {
         credentials: 'include',
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         setPricingTypes(data.data || []);
@@ -190,7 +194,7 @@ const NewShipment = ({ setActiveTab }: TrackShipmentsProps) => {
       const userResponse = await fetch(`${API_BASE_URL}/check-cookie`, {
         credentials: 'include'
       });
-      
+
       if (!userResponse.ok) {
         alert('Please login to complete payment');
         setPaymentProcessing(false);
@@ -199,6 +203,12 @@ const NewShipment = ({ setActiveTab }: TrackShipmentsProps) => {
 
       const userData = await userResponse.json();
       const shippingCost = calculatedPrice;
+
+      if (!createdParcel) {
+        alert('Parcel not found. Please try again.');
+        setPaymentProcessing(false);
+        return;
+      }
 
       const paymentPayload = {
         user: userData.id,
@@ -219,7 +229,7 @@ const NewShipment = ({ setActiveTab }: TrackShipmentsProps) => {
 
       if (paymentResponse.ok) {
         const paymentResult = await paymentResponse.json();
-        
+
         const selectedPricing = pricingTypes.find(p => p._id === shipmentData.pricingId);
         const invoicePayload = {
           invoiceNumber: generateInvoiceNumber(),
@@ -259,7 +269,7 @@ const NewShipment = ({ setActiveTab }: TrackShipmentsProps) => {
           console.error('Invoice creation failed, but payment was successful');
           alert(`Payment successful! Your shipment has been created.\n\nTracking Number: ${createdParcel.trackingNumber}\nPayment ID: ${paymentResult.data._id}\n\nNote: Invoice generation pending.`);
         }
-        
+
         setShipmentData({
           senderName: "",
           senderPhone: "",
@@ -331,15 +341,13 @@ const NewShipment = ({ setActiveTab }: TrackShipmentsProps) => {
         <div className="flex items-center justify-between max-w-2xl">
           {[1, 2, 3, 4, 5].map((s) => (
             <div key={s} className="flex items-center">
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold border-2 ${
-                step >= s ? 'bg-blue-600 border-blue-600 text-white' : 'bg-gray-800 border-gray-600 text-gray-400'
-              }`}>
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold border-2 ${step >= s ? 'bg-blue-600 border-blue-600 text-white' : 'bg-gray-800 border-gray-600 text-gray-400'
+                }`}>
                 {s}
               </div>
               {s < 5 && (
-                <div className={`h-1 w-12 md:w-24 mx-2 ${
-                  step > s ? 'bg-blue-600' : 'bg-gray-700'
-                }`}></div>
+                <div className={`h-1 w-12 md:w-24 mx-2 ${step > s ? 'bg-blue-600' : 'bg-gray-700'
+                  }`}></div>
               )}
             </div>
           ))}
@@ -359,7 +367,7 @@ const NewShipment = ({ setActiveTab }: TrackShipmentsProps) => {
         {step === 1 && (
           <div className="space-y-6">
             <h3 className="text-xl font-bold text-white mb-6">Sender Information</h3>
-            
+
             <div>
               <label className="block text-gray-400 text-sm font-medium mb-2">Full Name *</label>
               <input
@@ -412,7 +420,7 @@ const NewShipment = ({ setActiveTab }: TrackShipmentsProps) => {
         {step === 2 && (
           <div className="space-y-6">
             <h3 className="text-xl font-bold text-white mb-6">Receiver Information</h3>
-            
+
             <div>
               <label className="block text-gray-400 text-sm font-medium mb-2">Full Name *</label>
               <input
@@ -465,7 +473,7 @@ const NewShipment = ({ setActiveTab }: TrackShipmentsProps) => {
         {step === 3 && (
           <div className="space-y-6">
             <h3 className="text-xl font-bold text-white mb-6">Parcel Details</h3>
-            
+
             <div>
               <label className="block text-gray-400 text-sm font-medium mb-2">Parcel Type *</label>
               {loadingPricing ? (
@@ -614,7 +622,7 @@ const NewShipment = ({ setActiveTab }: TrackShipmentsProps) => {
         {step === 4 && (
           <div className="space-y-6">
             <h3 className="text-xl font-bold text-white mb-6">Review Shipment</h3>
-            
+
             <div className="space-y-4">
               <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
                 <h4 className="text-blue-400 font-semibold mb-3">Sender</h4>
@@ -660,7 +668,7 @@ const NewShipment = ({ setActiveTab }: TrackShipmentsProps) => {
         {step === 5 && (
           <div className="space-y-6">
             <h3 className="text-xl font-bold text-white mb-6">Payment</h3>
-            
+
             <div className="bg-blue-900/20 border border-blue-700 p-6 rounded-lg mb-6">
               <div className="flex justify-between items-center mb-4">
                 <span className="text-lg text-gray-300">Total Amount:</span>

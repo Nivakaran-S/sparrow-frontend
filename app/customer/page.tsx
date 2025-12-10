@@ -12,12 +12,13 @@ import NewShipment from "./pages/NewShipment";
 import HelpSupport from "./pages/HelpSupport";
 import OrderHistory from "./pages/OrderHistory";
 import SwiftScreen from "./pages/SwiftScreen";
+import { User } from "../types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api-gateway-nine-orpin.vercel.app";
 
 export default function CustomerDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
@@ -41,7 +42,7 @@ export default function CustomerDashboard() {
       }
 
       const data = await response.json();
-      
+
       if (data.role !== "Customer") {
         router.push("/login");
         return;
@@ -55,7 +56,7 @@ export default function CustomerDashboard() {
       if (customerResponse.ok) {
         const customerData = await customerResponse.json();
         const customer = customerData[0];
-        
+
         setUser({
           id: data.id,
           role: data.role,

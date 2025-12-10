@@ -2,14 +2,9 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Bell, BellDot, Check, Plus } from "lucide-react";
+import { User } from "../../types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api-gateway-nine-orpin.vercel.app";
-
-type UserResponse = {
-  firstName?: string;
-  lastName?: string;
-  email?: string;
-};
 
 interface Notification {
   _id: string;
@@ -23,7 +18,7 @@ interface Notification {
 }
 
 interface CustomerNavigationProps {
-  user?: UserResponse;
+  user?: User | null;
   setActiveTab?: (tab: string) => void;
 }
 
@@ -35,7 +30,7 @@ const CustomerNavigation = ({ user, setActiveTab }: CustomerNavigationProps) => 
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
-  
+
   const dropdownRef = useRef<HTMLDivElement>(null);
   const notificationsRef = useRef<HTMLDivElement>(null);
 
@@ -87,7 +82,7 @@ const CustomerNavigation = ({ user, setActiveTab }: CustomerNavigationProps) => 
 
     try {
       setLoading(true);
-      
+
       const notifResponse = await fetch(
         `${API_BASE_URL}/api/notifications/api/notifications/user/${userId}?limit=10`,
         { credentials: "include" }
@@ -212,11 +207,11 @@ const CustomerNavigation = ({ user, setActiveTab }: CustomerNavigationProps) => 
               <h1 className="text-3xl font-bold text-white">Sparrow</h1>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-6">
             {/* Quick Actions */}
             <div className="hidden md:flex items-center gap-3">
-              <button 
+              <button
                 onClick={() => setActiveTab && setActiveTab('newShipment')}
                 className="px-4 py-2 cursor-pointer bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
               >
@@ -227,7 +222,7 @@ const CustomerNavigation = ({ user, setActiveTab }: CustomerNavigationProps) => 
 
             {/* Notifications */}
             <div className="relative" ref={notificationsRef}>
-              <div 
+              <div
                 className="relative bg-gray-800 border border-gray-600 rounded-full w-10 h-10 flex items-center justify-center cursor-pointer hover:bg-gray-700 hover:border-blue-500 transition-all"
                 onClick={() => {
                   setIsNotificationsOpen(!isNotificationsOpen);
@@ -247,7 +242,7 @@ const CustomerNavigation = ({ user, setActiveTab }: CustomerNavigationProps) => 
                   </div>
                 )}
               </div>
-              
+
               {isNotificationsOpen && (
                 <div className="absolute right-0 mt-2 w-96 bg-gray-800 border border-gray-700 rounded-lg shadow-lg py-2 z-50">
                   <div className="px-4 py-2 border-b border-gray-700 flex justify-between items-center">
@@ -256,7 +251,7 @@ const CustomerNavigation = ({ user, setActiveTab }: CustomerNavigationProps) => 
                       <span className="text-xs text-gray-400">{unreadCount} unread</span>
                     )}
                   </div>
-                  
+
                   <div className="max-h-96 overflow-y-auto">
                     {loading ? (
                       <div className="px-4 py-8 text-center text-gray-400">
@@ -267,9 +262,8 @@ const CustomerNavigation = ({ user, setActiveTab }: CustomerNavigationProps) => 
                       notifications.map(notification => (
                         <div
                           key={notification._id}
-                          className={`px-4 py-3 hover:bg-gray-700 cursor-pointer border-b border-gray-700 last:border-b-0 transition-colors ${
-                            !notification.isRead ? "bg-blue-500/5" : ""
-                          }`}
+                          className={`px-4 py-3 hover:bg-gray-700 cursor-pointer border-b border-gray-700 last:border-b-0 transition-colors ${!notification.isRead ? "bg-blue-500/5" : ""
+                            }`}
                           onClick={() => !notification.isRead && markAsRead(notification._id)}
                         >
                           <div className="flex items-start gap-3">
@@ -302,7 +296,7 @@ const CustomerNavigation = ({ user, setActiveTab }: CustomerNavigationProps) => 
                       </div>
                     )}
                   </div>
-                  
+
                   {notifications.length > 0 && (
                     <div className="px-4 py-2 border-t border-gray-700">
                       <button
@@ -321,7 +315,7 @@ const CustomerNavigation = ({ user, setActiveTab }: CustomerNavigationProps) => 
 
             {/* User Profile */}
             <div className="relative" ref={dropdownRef}>
-              <div 
+              <div
                 className="flex items-center gap-2 cursor-pointer hover:bg-gray-800 rounded-lg px-3 py-2 transition-colors"
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
               >
@@ -339,7 +333,7 @@ const CustomerNavigation = ({ user, setActiveTab }: CustomerNavigationProps) => 
 
               {isDropdownOpen && (
                 <div className="absolute right-0 mt-2 w-48 bg-gray-800 border border-gray-700 rounded-lg shadow-lg py-2 z-50">
-                  <button 
+                  <button
                     onClick={() => {
                       setActiveTab && setActiveTab('profile');
                       setIsDropdownOpen(false);
@@ -348,7 +342,7 @@ const CustomerNavigation = ({ user, setActiveTab }: CustomerNavigationProps) => 
                   >
                     Profile Settings
                   </button>
-                  <button 
+                  <button
                     onClick={() => {
                       setActiveTab && setActiveTab('billing');
                       setIsDropdownOpen(false);
@@ -358,7 +352,7 @@ const CustomerNavigation = ({ user, setActiveTab }: CustomerNavigationProps) => 
                     Billing & Payment
                   </button>
                   <div className="border-t border-gray-700 my-2"></div>
-                  <button 
+                  <button
                     onClick={handleLogout}
                     className="w-full px-4 py-2 cursor-pointer text-left text-red-400 hover:bg-gray-700 transition-colors"
                   >
